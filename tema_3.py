@@ -1,13 +1,12 @@
 #tema_3
+username_correct = "krisHicban"
+password_correct = "qwerty"
 username = input("\nUsername:")
 password = input("\nPassword:")
-if username == ("krisHicban") and  password == ("qwerty"):
+if username == username_correct and  password == password_correct:
     print ("\nAccess Granted!")
-elif username != ("krisHicban") and  password ==("qwerty"):
-    print ("\nUsername/Password Incorrect!")
-elif username == ("krisHicban") or not password != ("qwerty"):
-    print ("\nUsername/Password Incorect!")
-elif username != ("krisHicban") or not password != ("qwerty"):
-    print ("\nAccess Denied")  
+elif username != username_correct and password != password_correct:
+    print ("\nAccess Denied!")
 else:
-    print ("\nSomething went wrong!")
+    print ("\nUsername/Password Incorect!")
+
