@@ -23,9 +23,7 @@ Autori: Lao & Claude - Webinar "Arta Programării cu AI"
 import sys
 import random
 import pickle
-import numpy as np
-import matplotlib.pyplot as plt
-from collections import defaultdict, deque
+from collections import defaultdict
 import time
 from PyQt5.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout,
                             QPushButton, QLabel, QDialog, QTextEdit, QFrame,
@@ -46,7 +44,7 @@ class QLearningAgent:
     - Discount Factor (γ): Cât de mult valorează recompensele viitoare
     """
 
-    def __init__(self, learning_rate=0.1, discount_factor=0.95, epsilon=0.1):
+    def __init__(self, learning_rate=0.3, discount_factor=0.95, epsilon=0.3):
         # 📚 Q-Table: Memoria AI-ului - pentru fiecare (situație, acțiune)
         # păstrează o valoare Q care spune cât de bună e acea acțiune
         self.q_table = defaultdict(float)
@@ -82,15 +80,84 @@ class QLearningAgent:
         """
         return [i for i, cell in enumerate(board) if cell == '']
 
+    def check_winner(self, board):
+        """
+        🏆 Verifică dacă cineva a câștigat
+        """
+        win_patterns = [
+            [0, 1, 2], [3, 4, 5], [6, 7, 8],  # rânduri
+            [0, 3, 6], [1, 4, 7], [2, 5, 8],  # coloane
+            [0, 4, 8], [2, 4, 6]  # diagonale
+        ]
+
+        for pattern in win_patterns:
+            if board[pattern[0]] == board[pattern[1]] == board[pattern[2]] != '':
+                return board[pattern[0]]
+        return None
+
+    def choose_strategic_action(self, board):
+        """
+        🎯 Strategii de bază pentru a face AI-ul mai inteligent
+        """
+        # 1. Încearcă să câștigi
+        for i in range(9):
+            if board[i] == '':
+                board[i] = 'O'
+                if self.check_winner(board) == 'O':
+                    board[i] = ''
+                    return i
+                board[i] = ''
+
+        # 2. Blochează adversarul
+        for i in range(9):
+            if board[i] == '':
+                board[i] = 'X'
+                if self.check_winner(board) == 'X':
+                    board[i] = ''
+                    return i
+                board[i] = ''
+
+        # 3. Ia centrul dacă e liber
+        if board[4] == '':
+            return 4
+
+        # 4. Ia colțurile
+        corners = [0, 2, 6, 8]
+        available_corners = [i for i in corners if board[i] == '']
+        if available_corners:
+            return random.choice(available_corners)
+
+        return None
+
+    def evaluate_position(self, board, action):
+        """
+        ⚖️ Evaluează cât de bună este o poziție
+        """
+        bonus = 0.0
+        test_board = board[:]
+
+        # Testează dacă această mutare câștigă
+        test_board[action] = 'O'
+        if self.check_winner(test_board) == 'O':
+            bonus += 1.0
+
+        # Testează dacă această mutare blochează
+        test_board[action] = 'X'
+        if self.check_winner(test_board) == 'X':
+            bonus += 0.8
+
+        # Bonus pentru centru și colțuri
+        if action == 4:
+            bonus += 0.3
+        elif action in [0, 2, 6, 8]:
+            bonus += 0.2
+
+        return bonus * 0.1
+
     def choose_action(self, board, training=True):
         """
         🤔 DECIZIA PRINCIPALĂ: Ce mișcare să fac?
-
-        Folosește strategia ε-greedy:
-        - Cu probabilitatea ε: EXPLOREAZĂ (încearcă ceva nou/random)
-        - Cu probabilitatea 1-ε: EXPLOATEAZĂ (folosește cea mai bună mișcare cunoscută)
-
-        Acest echilibru este ESENȚIAL în ML!
+        Combină Q-Learning cu strategii inteligente
         """
         state = self.state_to_string(board)
         valid_actions = self.get_valid_actions(board)
@@ -98,21 +165,33 @@ class QLearningAgent:
         if not valid_actions:
             return None
 
+        # Pentru primele jocuri, folosește strategii de bază
+        if len(self.q_table) < 100:
+            strategic_action = self.choose_strategic_action(board)
+            if strategic_action is not None:
+                self.decision_reason = f"🎯 STRATEGIE INIȚIALĂ: Aleg poziția {strategic_action + 1}"
+                self.last_state = state
+                self.last_action = strategic_action
+                return strategic_action
+
         # 🎲 EXPLORARE vs EXPLOATARE
         if training and random.random() < self.epsilon:
             # EXPLORARE: Încearcă ceva nou!
             action = random.choice(valid_actions)
             self.decision_reason = f"🎲 EXPLORARE: Încerc poziția {action + 1} la întâmplare (ε={self.epsilon:.2f})"
         else:
-            # EXPLOATARE: Folosește cea mai bună mișcare cunoscută
-            q_values = {action: self.q_table[(state, action)] for action in valid_actions}
-            max_q = max(q_values.values())
+            # EXPLOATARE: Combină Q-value cu strategii
+            q_values = {}
+            for action in valid_actions:
+                q_val = self.q_table[(state, action)]
+                strategic_bonus = self.evaluate_position(board, action)
+                q_values[action] = q_val + strategic_bonus
 
-            # Dacă sunt mai multe acțiuni cu aceeași valoare Q maximă, alege random dintre ele
+            max_q = max(q_values.values())
             best_actions = [action for action, q_val in q_values.items() if q_val == max_q]
             action = random.choice(best_actions)
 
-            self.decision_reason = f"🧠 EXPLOATARE: Aleg poziția {action + 1} (Q-value: {max_q:.3f})"
+            self.decision_reason = f"🧠 EXPLOATARE: Aleg poziția {action + 1} (Q-value: {self.q_table[(state, action)]:.3f})"
 
         self.last_state = state
         self.last_action = action
@@ -248,10 +327,12 @@ class TrainingThread(QThread):
             # Joacă un joc complet împotriva unui adversar random
             self.play_training_game()
 
-            # Actualizează progresul la fiecare 100 de jocuri
-            if episode % 100 == 0:
+            # Actualizează progresul la fiecare 10 jocuri pentru vizibilitate
+            if episode % 10 == 0:
                 stats = self.agent.get_statistics()
                 self.progress_updated.emit(episode, stats)
+                # Pauză scurtă pentru vizibilitate
+                time.sleep(0.02)
 
         self.training_completed.emit()
 
@@ -264,7 +345,7 @@ class TrainingThread(QThread):
 
         while True:
             # Verifică dacă jocul s-a terminat
-            winner = self.check_winner(board)
+            winner = self.agent.check_winner(board)
             if winner is not None:
                 # Recompensă finală
                 if winner == 'O':  # AI-ul a câștigat
@@ -299,20 +380,6 @@ class TrainingThread(QThread):
 
             ai_turn = not ai_turn
 
-    def check_winner(self, board):
-        """
-        🏆 Verifică câștigătorul
-        """
-        win_conditions = [
-            [0, 1, 2], [3, 4, 5], [6, 7, 8],  # rânduri
-            [0, 3, 6], [1, 4, 7], [2, 5, 8],  # coloane
-            [0, 4, 8], [2, 4, 6]              # diagonale
-        ]
-
-        for condition in win_conditions:
-            if board[condition[0]] == board[condition[1]] == board[condition[2]] != '':
-                return board[condition[0]]
-        return None
 
     def stop_training(self):
         self.should_stop = True
