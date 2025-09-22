@@ -17,7 +17,7 @@ Acest script demonstrează diferența dintre:
 - AI cu ML: "Am încercat această mutare înainte și am câștigat/pierdut,
             deci o să o încerc din nou/evit"
 
-Autori: Neo & Claude - Webinar "Arta Programării"
+Autori: Lao & Claude - Webinar "Arta Programării cu AI"
 """
 
 import sys
@@ -171,7 +171,15 @@ class QLearningAgent:
         📊 Statistici pentru monitorizarea progresului
         """
         if self.total_games == 0:
-            return {"total": 0, "win_rate": 0, "loss_rate": 0, "draw_rate": 0}
+            return {
+                "total": 0,
+                "wins": 0,
+                "losses": 0,
+                "draws": 0,
+                "win_rate": 0,
+                "loss_rate": 0,
+                "draw_rate": 0
+            }
 
         return {
             "total": self.total_games,
