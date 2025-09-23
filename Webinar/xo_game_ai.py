@@ -997,7 +997,7 @@ class TicTacToeAI(QWidget):
         """
         🏃‍♂️ Începe antrenamentul
         """
-        self.training_thread = TrainingThread(self.ml_agent, episodes=1000)
+        self.training_thread = TrainingThread(self.ml_agent, episodes=10000)
         self.training_thread.progress_updated.connect(self.update_training_progress)
         self.training_thread.training_completed.connect(self.training_finished)
 
