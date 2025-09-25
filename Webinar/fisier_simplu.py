@@ -1,1 +1,1 @@
-print("Buna!");
+print("Buna!")
