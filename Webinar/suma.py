@@ -329,10 +329,12 @@ class Calculator(QWidget):
 
 
 
+
+
             # Toata logica se intampla aici, restul este UI/UX
             # Convert display symbols to calculation symbols
             if op == '+':
-                result = num1 + num2 + 1
+                result = num1 + num2
                 operation_text = "adunarea"
             elif op == '-':
                 result = num1 - num2
@@ -346,6 +348,9 @@ class Calculator(QWidget):
                     return
                 result = num1 / num2
                 operation_text = "împărțirea"
+
+
+
 
 
 
