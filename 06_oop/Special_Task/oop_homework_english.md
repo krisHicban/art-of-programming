@@ -7,7 +7,7 @@
 
 ## The Homework Assignment
 
-### **Title: "Night Walk Class Modeling"**
+### **Title: "Real Time Class Modelling"**
 
 **Objective:** Spend 15-20 minutes in any comfortable location (park, café, your room, a street corner) and systematically observe everything around you. Choose a clean air and empty stomach if possible. It will highten your observance. 
 Your task is to deconstruct this real world into a proper object-oriented model.
@@ -304,7 +304,7 @@ class Lamppost(ParkFurniture):
 
 ### The Interaction Simulation
 
-Now, let me show you how these classes interact in your night walk:
+How these classes interact in the night walk:
 
 ```python
 # Create the scene
@@ -404,13 +404,13 @@ They looked at the world and asked:
 
 ---
 
-## Your Night Walk: The Perfect Example
+## Night Walk: The Perfect Example
 
-Let me trace how the real world data model led to the programming concepts:
+How the real world data model led to the programming concepts:
 
 ### 1. The Reality You First Observed
 
-During your night walk, your brain naturally processed:
+During the night walk, brain naturally processed:
 
 **Raw Sensory Data → Natural Categories**
 
@@ -422,7 +422,7 @@ This wasn't programming thinking - this was human pattern recognition that has e
 
 ### 2. The Data Relationships Were Already There
 
-Your mind automatically understood:
+The mind automatically understood:
 
 - **Hierarchy:** Person → NightGuard (specialization)
 - **Properties:** Some visible (badge), some hidden (salary)

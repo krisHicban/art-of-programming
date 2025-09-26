@@ -7,7 +7,7 @@
 
 ## Tema pentru Acasă
 
-### **Titlul: "Modelarea Claselor în timpul unei Plimbări Nocturne"**
+### **Titlul: "Modelarea Claselor în timp Real"**
 
 **Obiectiv:** Petrece 15-20 de minute într-o locație confortabilă (parc, cafenea, camera ta, un colț de stradă) și observă sistematic tot ce te înconjoară. Alege un aer curat și stomacul gol, dacă este posibil. Îți va întări capacitatea de observare.
 Sarcina ta este să decompui această lume reală într-un model orientat pe obiecte corect.
@@ -303,7 +303,7 @@ class StalpIluminat(MobiliParc):
 
 ### Simularea Interacțiunii
 
-Acum, îți voi arăta cum interacționează aceste clase în plimbarea ta nocturnă:
+Cum interacționează aceste clase în plimbarea nocturnă:
 
 ```python
 # Creează scena
@@ -403,13 +403,13 @@ S-au uitat la lume și au întrebat:
 
 ---
 
-## Plimbarea Ta Nocturnă: Exemplul Perfect
+## Plimbarea Nocturnă: Exemplul Perfect
 
-Lasă-mă să urmăresc cum modelul de date din lumea reală a dus la conceptele de programare:
+Cum modelul de date din lumea reală a dus la conceptele de programare:
 
 ### 1. Realitatea Pe Care Ai Observat-o Prima Dată
 
-În timpul plimbării nocturne, creierul tău a procesat în mod natural:
+În timpul plimbării nocturne, creierul a procesat în mod natural:
 
 **Date Senzoriale Brute → Categorii Naturale**
 
@@ -421,7 +421,7 @@ Aceasta nu era gândire de programare - aceasta era recunoașterea de tipare uma
 
 ### 2. Relațiile de Date Existau Deja
 
-Mintea ta a înțeles automat:
+Mintea a înțeles automat:
 
 - **Ierarhia:** Persoană → PazaDeNoapte (specializare)
 - **Proprietățile:** Unele vizibile (ecuson), altele ascunse (salariu)
