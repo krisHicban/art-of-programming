@@ -1,3 +1,9 @@
+# Buna din sedinta urmatoare!
+# GIT
+# git clone *link*
+# git pull
+
+
 class Persoana:
     """
     Clasa de bază (parent class)
