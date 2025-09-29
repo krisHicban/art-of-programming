@@ -1,7 +1,7 @@
 # Object-Oriented Programming: The Real World as Classes
 *A Special Homework Assignment*
 
-## The Beautiful Truth You're about to Discove
+## The Beautiful Truth You're about to Discover
 
 ---
 
