@@ -92,7 +92,7 @@ WHISPER_LANGUAGE = None
 
 # ============ Tokens ============
 HF_TOKEN = os.environ.get("HUGGINGFACE_TOKEN")
-AAI_API_KEY = os.environ.get("ASSEMBLYAI_API_KEY`")
+AAI_API_KEY = os.environ.get("ASSEMBLYAI_API_KEY")
 
 
 # =====================================================================
