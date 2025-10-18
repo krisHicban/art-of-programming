@@ -12,7 +12,7 @@ BG = "#0b0b0b"
 if getattr(sys, 'frozen', False):
     BG_IMG = Path(sys.executable).with_name("bg.jpg")
 else:
-    BG_IMG = Path(__file__).with_name("bg.jpg")
+    BG_IMG = Path(__file__).with_name("bg.jpg") if '__file__' in globals() else Path("bg.jpg")
 
 
 class Main(QtWidgets.QMainWindow):
@@ -21,20 +21,32 @@ class Main(QtWidgets.QMainWindow):
         self.setWindowTitle("North Star Premium Imobiliare")
         self.resize(1000, 650)
 
+        # Create central widget with a regular layout (not stacked)
         c = QtWidgets.QWidget()
         self.setCentralWidget(c)
-        s = QtWidgets.QStackedLayout(c)
 
+        # Use QGridLayout to layer widgets
+        main_layout = QtWidgets.QGridLayout(c)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+
+        # Background label
         bg = QtWidgets.QLabel()
         bg.setScaledContents(True)
         if BG_IMG.exists():
             bg.setPixmap(QtGui.QPixmap(str(BG_IMG)))
         else:
             bg.setStyleSheet(f"background:{BG};")
-        s.addWidget(bg)
 
+        # Add background at position 0,0
+        main_layout.addWidget(bg, 0, 0)
+
+        # Content layer - this will be placed on top of the background
         layer = QtWidgets.QWidget()
-        s.addWidget(layer)
+        layer.setStyleSheet("background: transparent;")
+
+        # Add layer at the same position (0,0) - it will overlay the background
+        main_layout.addWidget(layer, 0, 0)
+
         v = QtWidgets.QVBoxLayout(layer)
         v.setContentsMargins(20, 20, 20, 20)
         v.setSpacing(12)

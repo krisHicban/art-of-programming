@@ -1,0 +1,19 @@
+[
+  {
+    "QuizID": "code_snippet",
+    "question": "What will this code output?",
+    "code": "text = \"hello world\"\nprint(text.upper())",
+    "options": [
+      { "id": "a", "text": "hello world" },
+      { "id": "b", "text": "HELLO WORLD" },
+      { "id": "c", "text": "Hello World" },
+      { "id": "d", "text": "Error" }
+    ],
+    "correct": "b",
+    "explanation": "The .upper() method converts all characters in a string to uppercase.",
+    "number": 1,
+    "difficulty": "easy",
+    "topic": "String Methods",
+    "active": 1
+  }
+]
