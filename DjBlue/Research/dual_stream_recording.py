@@ -1,6 +1,6 @@
 # For mac, need additional driver to match pyaudio architecture
 # brew install portaudio
-# And reach it seems a macOS limitation in dual-recording
+# And reach it seems a macOS limitation in dual-recording   
 
 # Index - 3 for speakers on PC,
 # 8 - Rode Mic
