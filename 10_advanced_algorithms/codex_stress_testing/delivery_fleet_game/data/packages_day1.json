@@ -1,0 +1,26 @@
+{
+  "day": 1,
+  "packages": [
+    {
+      "id": "pkg_001",
+      "destination": {"x": 15, "y": 25},
+      "volume_m3": 2.5,
+      "payment": 55,
+      "priority": 1
+    },
+    {
+      "id": "pkg_002",
+      "destination": {"x": 48, "y": 60},
+      "volume_m3": 5.0,
+      "payment": 90,
+      "priority": 2
+    },
+    {
+      "id": "pkg_003",
+      "destination": {"x": -20, "y": 35},
+      "volume_m3": 7.0,
+      "payment": 110,
+      "priority": 3
+    }
+  ]
+}

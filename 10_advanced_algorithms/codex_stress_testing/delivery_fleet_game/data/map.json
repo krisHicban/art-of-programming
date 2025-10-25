@@ -1,0 +1,11 @@
+{
+  "width": 100,
+  "height": 100,
+  "depot": {"x": 0, "y": 0},
+  "locations": [
+    {"id": "loc_001", "name": "Residential A", "x": 15, "y": 25},
+    {"id": "loc_002", "name": "Business District", "x": 48, "y": 60},
+    {"id": "loc_003", "name": "Industrial Park", "x": -20, "y": 35},
+    {"id": "loc_004", "name": "Suburb East", "x": 70, "y": -10}
+  ]
+}

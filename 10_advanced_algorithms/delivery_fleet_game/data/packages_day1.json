@@ -1,0 +1,85 @@
+{
+  "day": 1,
+  "packages": [
+    {
+      "id": "pkg_001",
+      "destination": {"x": 20, "y": 30},
+      "volume_m3": 2.5,
+      "payment": 45,
+      "priority": 1,
+      "description": "Small electronics"
+    },
+    {
+      "id": "pkg_002",
+      "destination": {"x": 45, "y": 60},
+      "volume_m3": 5.0,
+      "payment": 80,
+      "priority": 2,
+      "description": "Office supplies"
+    },
+    {
+      "id": "pkg_003",
+      "destination": {"x": 70, "y": 20},
+      "volume_m3": 3.2,
+      "payment": 55,
+      "priority": 1,
+      "description": "Household items"
+    },
+    {
+      "id": "pkg_004",
+      "destination": {"x": 35, "y": 85},
+      "volume_m3": 8.5,
+      "payment": 120,
+      "priority": 3,
+      "description": "Industrial parts"
+    },
+    {
+      "id": "pkg_005",
+      "destination": {"x": 55, "y": 40},
+      "volume_m3": 1.8,
+      "payment": 35,
+      "priority": 1,
+      "description": "Documents"
+    },
+    {
+      "id": "pkg_006",
+      "destination": {"x": 15, "y": 75},
+      "volume_m3": 4.5,
+      "payment": 70,
+      "priority": 2,
+      "description": "Furniture parts"
+    },
+    {
+      "id": "pkg_007",
+      "destination": {"x": 80, "y": 55},
+      "volume_m3": 6.0,
+      "payment": 95,
+      "priority": 2,
+      "description": "Computer equipment"
+    },
+    {
+      "id": "pkg_008",
+      "destination": {"x": 60, "y": 10},
+      "volume_m3": 2.0,
+      "payment": 40,
+      "priority": 1,
+      "description": "Books"
+    },
+    {
+      "id": "pkg_009",
+      "destination": {"x": 25, "y": 40},
+      "volume_m3": 3.8,
+      "payment": 60,
+      "priority": 1,
+      "description": "Clothing"
+    },
+    {
+      "id": "pkg_010",
+      "destination": {"x": 50, "y": 70},
+      "volume_m3": 7.2,
+      "payment": 105,
+      "priority": 3,
+      "description": "Appliances"
+    }
+  ]
+}

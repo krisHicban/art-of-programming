@@ -1,0 +1,5 @@
+__pycache__/
+.venv/
+savegames/*.json
+*.pyc
+.pytest_cache/

@@ -1,0 +1,15 @@
+{
+  "day": 3,
+  "packages": [
+    {"id": "pkg_201", "destination": {"x": 10, "y": 15}, "volume_m3": 1.5, "payment": 35},
+    {"id": "pkg_202", "destination": {"x": -5, "y": 25}, "volume_m3": 9.0, "payment": 120},
+    {"id": "pkg_203", "destination": {"x": 30, "y": -12}, "volume_m3": 12.0, "payment": 160},
+    {"id": "pkg_204", "destination": {"x": 45, "y": 38}, "volume_m3": 4.5, "payment": 85},
+    {"id": "pkg_205", "destination": {"x": -32, "y": -18}, "volume_m3": 7.5, "payment": 110},
+    {"id": "pkg_206", "destination": {"x": 55, "y": -5}, "volume_m3": 3.5, "payment": 70},
+    {"id": "pkg_207", "destination": {"x": 18, "y": 42}, "volume_m3": 6.0, "payment": 95},
+    {"id": "pkg_208", "destination": {"x": -45, "y": 15}, "volume_m3": 8.0, "payment": 130},
+    {"id": "pkg_209", "destination": {"x": 65, "y": 20}, "volume_m3": 5.5, "payment": 90},
+    {"id": "pkg_210", "destination": {"x": 5, "y": -40}, "volume_m3": 11.0, "payment": 150}
+  ]
+}

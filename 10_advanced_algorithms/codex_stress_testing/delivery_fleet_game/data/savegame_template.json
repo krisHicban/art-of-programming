@@ -1,0 +1,12 @@
+{
+  "current_day": 1,
+  "balance": 100000,
+  "fleet": [
+    {
+      "id": "veh_001",
+      "type": "small_van",
+      "purchase_day": 1
+    }
+  ],
+  "history": []
+}
