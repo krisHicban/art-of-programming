@@ -75,14 +75,14 @@ class Modal:
         pygame.draw.rect(screen, Colors.PANEL_BG, self.rect, border_radius=10)
         pygame.draw.rect(screen, Colors.BORDER_LIGHT, self.rect, 3, border_radius=10)
 
-        # Title
-        font_title = pygame.font.Font(None, FontSizes.HEADING + 4)
+        # Title - Use SysFont for better rendering
+        font_title = pygame.font.SysFont('arial', FontSizes.HEADING, bold=True)
         title_surf = font_title.render(self.title, True, Colors.TEXT_ACCENT)
         title_rect = title_surf.get_rect(center=(self.rect.centerx, self.y + 30))
         screen.blit(title_surf, title_rect)
 
-        # Content
-        font_body = pygame.font.Font(None, FontSizes.BODY)
+        # Content - Use SysFont for better rendering
+        font_body = pygame.font.SysFont('arial', FontSizes.BODY - 2)  # Slightly smaller for modal content
         y_offset = 70
         for line, color in self.content_lines:
             text_surf = font_body.render(line, True, color)
@@ -128,6 +128,7 @@ class DeliveryFleetApp:
         self.vehicle_modal = Modal("Purchase Vehicle", 600, 500)
         self.capacity_warning_modal = Modal("⚠️ Insufficient Capacity", 600, 400)
         self.marketing_modal = Modal("📈 Marketing & Package Rate", 650, 450)
+        self.day_summary_modal = Modal("📦 Day Summary", 700, 500)
 
         # Create UI
         self._create_ui_components()
@@ -173,6 +174,14 @@ class DeliveryFleetApp:
         self.packages_stat = StatDisplay(stat_x + 140, SIDEBAR_START + 100, "Pending:", "0")
         self.capacity_stat = StatDisplay(stat_x + 280, SIDEBAR_START + 40, "Capacity:", "0/0")
 
+        # Planned route metrics (visible when routes are planned)
+        self.planned_cost_stat = StatDisplay(stat_x, SIDEBAR_START + 135, "Cost:", "$0")
+        self.planned_revenue_stat = StatDisplay(stat_x + 140, SIDEBAR_START + 135, "Revenue:", "$0")
+        self.planned_profit_stat = StatDisplay(stat_x + 280, SIDEBAR_START + 135, "Profit:", "$0")
+
+        # Store planned metrics
+        self.planned_metrics = None
+
         # Agent radio buttons - Compact
         radio_x = SIDEBAR_X + 35
         radio_y = SIDEBAR_START + 220
@@ -184,22 +193,24 @@ class DeliveryFleetApp:
         ]
         self.agent_radios[0].selected = True
 
-        # Control buttons - FIXED positions that fit!
+        # Control buttons - Optimized spacing to fit all buttons
         btn_x = SIDEBAR_X + 25
         btn_y = SIDEBAR_START + 470
         btn_width = SIDEBAR_WIDTH - 50
         btn_small_width = (btn_width - 10) // 2
+        btn_height = 32  # Reduced from 35 to fit everything
+        btn_spacing = 36  # Tight spacing
 
         self.buttons = {
-            'start_day': Button(btn_x, btn_y, btn_width, 35, "📦 Start Day", self.on_start_day),
-            'buy_vehicle': Button(btn_x, btn_y + 40, btn_width, 35, "🚚 Buy Vehicle", self.on_buy_vehicle),
-            'plan_routes': Button(btn_x, btn_y + 80, btn_small_width, 35, "🧠 Plan", self.on_plan_routes),
-            'clear': Button(btn_x + btn_small_width + 10, btn_y + 80, btn_small_width, 35, "🔄 Clear", self.on_clear_routes),
-            'execute': Button(btn_x, btn_y + 120, btn_small_width, 35, "▶️ Execute", self.on_execute_day),
-            'next_day': Button(btn_x + btn_small_width + 10, btn_y + 120, btn_small_width, 35, "⏭️ Next", self.on_next_day),
-            'marketing': Button(btn_x, btn_y + 160, btn_width, 35, "📈 Marketing", self.on_show_marketing),
-            'save': Button(btn_x, btn_y + 200, btn_small_width, 35, "💾 Save", self.on_save),
-            'stats': Button(btn_x + btn_small_width + 10, btn_y + 200, btn_small_width, 35, "📊 Stats", self.on_stats),
+            'start_day': Button(btn_x, btn_y, btn_width, btn_height, "📦 Start Day", self.on_start_day),
+            'buy_vehicle': Button(btn_x, btn_y + btn_spacing, btn_width, btn_height, "🚚 Buy Vehicle", self.on_buy_vehicle),
+            'plan_routes': Button(btn_x, btn_y + btn_spacing * 2, btn_small_width, btn_height, "🧠 Plan", self.on_plan_routes),
+            'clear': Button(btn_x + btn_small_width + 10, btn_y + btn_spacing * 2, btn_small_width, btn_height, "🔄 Clear", self.on_clear_routes),
+            'execute': Button(btn_x, btn_y + btn_spacing * 3, btn_small_width, btn_height, "▶️ Execute", self.on_execute_day),
+            'next_day': Button(btn_x + btn_small_width + 10, btn_y + btn_spacing * 3, btn_small_width, btn_height, "⏭️ Next", self.on_next_day),
+            'marketing': Button(btn_x, btn_y + btn_spacing * 4, btn_width, btn_height, "📈 Marketing", self.on_show_marketing),
+            'save': Button(btn_x, btn_y + btn_spacing * 5, btn_small_width, btn_height, "💾 Save", self.on_save),
+            'stats': Button(btn_x + btn_small_width + 10, btn_y + btn_spacing * 5, btn_small_width, btn_height, "📊 Stats", self.on_stats),
         }
 
         # Set initial states
@@ -225,13 +236,99 @@ class DeliveryFleetApp:
         total_volume = sum(pkg.volume_m3 for pkg in self.engine.game_state.packages_pending)
         fleet_capacity = sum(v.vehicle_type.capacity_m3 for v in self.engine.game_state.fleet)
 
+        # Show day summary
+        self.show_day_summary(total_volume, fleet_capacity)
+
         if total_volume > fleet_capacity:
-            self.show_capacity_warning(total_volume, fleet_capacity)
+            # Will show capacity warning after closing day summary
+            pass
         else:
             self.buttons['plan_routes'].enabled = True
             self.show_warning("", Colors.TEXT_PRIMARY)
 
         self.update_stats()
+
+    def show_day_summary(self, total_volume: float, fleet_capacity: float):
+        """Show day start summary with package and fleet information."""
+        state = self.engine.game_state
+        packages = state.packages_pending
+
+        # Count package types
+        small_pkgs = sum(1 for p in packages if p.volume_m3 < 2.5)
+        medium_pkgs = sum(1 for p in packages if 2.5 <= p.volume_m3 < 4.0)
+        large_pkgs = sum(1 for p in packages if p.volume_m3 >= 4.0)
+        priority_pkgs = sum(1 for p in packages if p.priority >= 3)
+
+        # Calculate potential revenue
+        potential_revenue = sum(p.payment for p in packages)
+
+        # Fleet breakdown
+        fleet_by_type = {}
+        for v in state.fleet:
+            vtype = v.vehicle_type.name
+            if vtype not in fleet_by_type:
+                fleet_by_type[vtype] = 0
+            fleet_by_type[vtype] += 1
+
+        # Capacity status
+        capacity_pct = (total_volume / fleet_capacity * 100) if fleet_capacity > 0 else 0
+        capacity_color = Colors.PROFIT_POSITIVE if capacity_pct <= 100 else Colors.PROFIT_NEGATIVE
+
+        content = [
+            (f"═══ DAY {state.current_day} START ═══", Colors.TEXT_ACCENT),
+            ("", Colors.TEXT_PRIMARY),
+            ("📦 PACKAGES TO DELIVER", Colors.TEXT_ACCENT),
+            (f"   Total: {len(packages)} packages ({total_volume:.1f}m³)", Colors.TEXT_PRIMARY),
+            (f"   Small: {small_pkgs} | Medium: {medium_pkgs} | Large: {large_pkgs}", Colors.TEXT_SECONDARY),
+            (f"   High Priority: {priority_pkgs}", Colors.TEXT_SECONDARY),
+            (f"   Potential Revenue: ${potential_revenue:.0f}", Colors.PROFIT_POSITIVE),
+            ("", Colors.TEXT_PRIMARY),
+            ("🚚 FLEET STATUS", Colors.TEXT_ACCENT),
+            (f"   Total Capacity: {fleet_capacity:.1f}m³", Colors.TEXT_PRIMARY),
+        ]
+
+        # Add fleet breakdown
+        for vtype, count in fleet_by_type.items():
+            content.append((f"   {vtype}: {count}x", Colors.TEXT_SECONDARY))
+
+        content.extend([
+            ("", Colors.TEXT_PRIMARY),
+            (f"📊 CAPACITY USAGE: {capacity_pct:.0f}%", capacity_color),
+            ("", Colors.TEXT_PRIMARY),
+            ("💡 Hover over packages on map for details!", Colors.TEXT_ACCENT),
+            ("", Colors.TEXT_PRIMARY),  # Extra spacing before buttons
+            ("", Colors.TEXT_PRIMARY),  # Extra spacing before buttons
+        ])
+
+        # Create buttons - positioned lower to avoid overlap
+        modal_btn_x = self.day_summary_modal.x + 180
+        modal_btn_y = self.day_summary_modal.y + 440  # Increased from 420
+
+        if total_volume > fleet_capacity:
+            # Need more capacity
+            buttons = [
+                Button(modal_btn_x, modal_btn_y, 250, 40, "⚠️ Buy Vehicle (Shortage!)",
+                       lambda: self.close_day_summary_and_buy(total_volume, fleet_capacity)),
+                Button(modal_btn_x + 260, modal_btn_y, 150, 40, "Continue",
+                       lambda: self.close_day_summary_with_warning(total_volume, fleet_capacity)),
+            ]
+        else:
+            buttons = [
+                Button(modal_btn_x + 120, modal_btn_y, 250, 40, "Start Planning Routes ✓",
+                       lambda: self.day_summary_modal.hide()),
+            ]
+
+        self.day_summary_modal.show(content, buttons)
+
+    def close_day_summary_and_buy(self, needed: float, available: float):
+        """Close day summary and open vehicle purchase."""
+        self.day_summary_modal.hide()
+        self.on_buy_vehicle()
+
+    def close_day_summary_with_warning(self, needed: float, available: float):
+        """Close day summary and show capacity warning."""
+        self.day_summary_modal.hide()
+        self.show_capacity_warning(needed, available)
 
     def show_capacity_warning(self, needed: float, available: float):
         """Show warning when capacity is insufficient."""
@@ -343,10 +440,21 @@ class DeliveryFleetApp:
 
         if metrics and metrics.get('routes'):
             self.planned_routes = metrics['routes']
+            self.planned_metrics = metrics
             self.engine.apply_agent_solution(self.selected_agent)
             self.buttons['execute'].enabled = True
             self.buttons['clear'].enabled = True
+
+            # Update planned metrics display
+            cost = metrics['total_cost']
+            revenue = metrics['total_revenue']
             profit = metrics['total_profit']
+
+            profit_color = Colors.PROFIT_POSITIVE if profit > 0 else Colors.PROFIT_NEGATIVE
+            self.planned_cost_stat.set_value(f"${cost:.0f}", Colors.PROFIT_NEGATIVE)
+            self.planned_revenue_stat.set_value(f"${revenue:.0f}", Colors.PROFIT_POSITIVE)
+            self.planned_profit_stat.set_value(f"${profit:.0f}", profit_color)
+
             self.show_warning(f"Routes planned! Profit: ${profit:.2f}", Colors.PROFIT_POSITIVE)
         else:
             self.show_warning("No valid routes found!", Colors.PROFIT_NEGATIVE)
@@ -355,9 +463,16 @@ class DeliveryFleetApp:
         """Clear planned routes and reset UI."""
         print("\n[UI] Clearing routes...")
         self.planned_routes = []
+        self.planned_metrics = None
         self.engine.game_state.set_routes([])
         self.buttons['execute'].enabled = False
         self.buttons['clear'].enabled = False
+
+        # Clear planned metrics display
+        self.planned_cost_stat.set_value("$0", Colors.TEXT_SECONDARY)
+        self.planned_revenue_stat.set_value("$0", Colors.TEXT_SECONDARY)
+        self.planned_profit_stat.set_value("$0", Colors.TEXT_SECONDARY)
+
         self.show_warning("Routes cleared", Colors.TEXT_ACCENT)
 
     def on_execute_day(self):
@@ -373,6 +488,12 @@ class DeliveryFleetApp:
         self.buttons['execute'].enabled = False
         self.buttons['clear'].enabled = False
         self.buttons['plan_routes'].enabled = False
+
+        # Clear planned metrics display
+        self.planned_metrics = None
+        self.planned_cost_stat.set_value("$0", Colors.TEXT_SECONDARY)
+        self.planned_revenue_stat.set_value("$0", Colors.TEXT_SECONDARY)
+        self.planned_profit_stat.set_value("$0", Colors.TEXT_SECONDARY)
 
         # Show result
         last_day = self.engine.game_state.get_last_day_summary()
@@ -556,16 +677,28 @@ class DeliveryFleetApp:
                         self.vehicle_modal.hide()
                     elif self.capacity_warning_modal.visible:
                         self.capacity_warning_modal.hide()
+                    elif self.marketing_modal.visible:
+                        self.marketing_modal.hide()
+                    elif self.day_summary_modal.visible:
+                        self.day_summary_modal.hide()
                     else:
                         self.running = False
 
             # Modal events (priority)
+            if self.day_summary_modal.visible:
+                self.day_summary_modal.handle_event(event)
+                continue  # Don't process other events
+
             if self.vehicle_modal.visible:
                 self.vehicle_modal.handle_event(event)
                 continue  # Don't process other events
 
             if self.capacity_warning_modal.visible:
                 self.capacity_warning_modal.handle_event(event)
+                continue
+
+            if self.marketing_modal.visible:
+                self.marketing_modal.handle_event(event)
                 continue
 
             # Regular button events
@@ -597,8 +730,10 @@ class DeliveryFleetApp:
         self.render_sidebar()
 
         # Modals on top
+        self.day_summary_modal.render(self.screen)
         self.vehicle_modal.render(self.screen)
         self.capacity_warning_modal.render(self.screen)
+        self.marketing_modal.render(self.screen)
 
         self.tooltip.render(self.screen)
 
@@ -609,24 +744,44 @@ class DeliveryFleetApp:
         title_rect = pygame.Rect(0, 0, WINDOW_WIDTH, TITLE_BAR_HEIGHT)
         pygame.draw.rect(self.screen, Colors.TITLE_BG, title_rect)
 
-        font_large = pygame.font.Font(None, FontSizes.TITLE)
+        # Use SysFont for better anti-aliasing
+        font_large = pygame.font.SysFont('arial', FontSizes.TITLE, bold=True)
         title = font_large.render("DELIVERY FLEET MANAGER", True, Colors.TEXT_ACCENT)
-        self.screen.blit(title, (20, 25))
+        self.screen.blit(title, (20, 20))
 
-        font_small = pygame.font.Font(None, FontSizes.SMALL)
+        font_small = pygame.font.SysFont('arial', FontSizes.SMALL)
         subtitle = font_small.render("Art of Programming - Route Optimization", True, Colors.TEXT_SECONDARY)
-        self.screen.blit(subtitle, (20, 60))
+        self.screen.blit(subtitle, (20, 58))
 
-        # Status
+        # Status - Improved rendering with panel background
         if self.engine.game_state:
-            status_x = WINDOW_WIDTH - 350
-            font_med = pygame.font.Font(None, FontSizes.BODY)
-            day = font_med.render(f"Day {self.engine.game_state.current_day}", True, Colors.TEXT_PRIMARY)
-            self.screen.blit(day, (status_x, 30))
+            status_x = WINDOW_WIDTH - 280
+            status_y = 15
+
+            # Draw background panel for status
+            status_panel = pygame.Rect(status_x - 15, status_y - 5, 270, 70)
+            pygame.draw.rect(self.screen, Colors.PANEL_BG, status_panel, border_radius=8)
+            pygame.draw.rect(self.screen, Colors.BORDER_LIGHT, status_panel, 2, border_radius=8)
+
+            # Day label and value
+            font_label = pygame.font.SysFont('arial', 14)
+            font_value = pygame.font.SysFont('arial', 24, bold=True)
+
+            day_label = font_label.render("Day", True, Colors.TEXT_SECONDARY)
+            self.screen.blit(day_label, (status_x, status_y))
+
+            day_value = font_value.render(str(self.engine.game_state.current_day), True, Colors.TEXT_ACCENT)
+            self.screen.blit(day_value, (status_x, status_y + 18))
+
+            # Balance label and value
+            bal_x = status_x + 120
+            bal_label = font_label.render("Balance", True, Colors.TEXT_SECONDARY)
+            self.screen.blit(bal_label, (bal_x, status_y))
 
             bal_color = Colors.PROFIT_POSITIVE if self.engine.game_state.balance >= 0 else Colors.PROFIT_NEGATIVE
-            bal = font_med.render(f"${self.engine.game_state.balance:,.0f}", True, bal_color)
-            self.screen.blit(bal, (status_x, 55))
+            bal_text = f"${self.engine.game_state.balance:,.0f}"
+            bal_value = font_value.render(bal_text, True, bal_color)
+            self.screen.blit(bal_value, (bal_x, status_y + 18))
 
     def render_map(self):
         """Render the map."""
@@ -668,13 +823,13 @@ class DeliveryFleetApp:
         pygame.draw.rect(self.screen, Colors.PANEL_BG, legend_rect, border_radius=5)
         pygame.draw.rect(self.screen, Colors.BORDER_LIGHT, legend_rect, 2, border_radius=5)
 
-        # Title
-        font_title = pygame.font.Font(None, FontSizes.BODY + 2)
+        # Title - Use SysFont for better rendering
+        font_title = pygame.font.SysFont('arial', FontSizes.BODY, bold=True)
         title = font_title.render("MAP LEGEND", True, Colors.TEXT_ACCENT)
         self.screen.blit(title, (legend_x + 10, legend_y + 8))
 
-        # Legend items in 2 rows, 3 columns
-        font_small = pygame.font.Font(None, FontSizes.SMALL)
+        # Legend items in 2 rows, 3 columns - Use SysFont
+        font_small = pygame.font.SysFont('arial', FontSizes.SMALL)
 
         # Column 1
         x_col1 = legend_x + 15
@@ -746,6 +901,12 @@ class DeliveryFleetApp:
         self.fleet_stat.render(self.screen)
         self.packages_stat.render(self.screen)
         self.capacity_stat.render(self.screen)
+
+        # Planned route metrics (only show when routes are planned)
+        if self.planned_metrics:
+            self.planned_cost_stat.render(self.screen)
+            self.planned_revenue_stat.render(self.screen)
+            self.planned_profit_stat.render(self.screen)
 
         # Radios
         for radio in self.agent_radios:

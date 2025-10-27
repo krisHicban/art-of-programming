@@ -90,12 +90,12 @@ class Colors:
 # Font Sizes
 class FontSizes:
     """Font size constants."""
-    TITLE = 28
-    HEADING = 20
-    SUBHEADING = 16
-    BODY = 14
-    SMALL = 12
-    TINY = 10
+    TITLE = 32         # Larger title
+    HEADING = 22       # Larger headings
+    SUBHEADING = 18    # Larger subheadings
+    BODY = 18          # Even larger body text
+    SMALL = 16         # Larger for tooltips/legend (was 14)
+    TINY = 12          # Slightly larger tiny text
 
 
 # Animation Settings

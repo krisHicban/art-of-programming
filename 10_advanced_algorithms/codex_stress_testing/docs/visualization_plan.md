@@ -29,9 +29,9 @@ ui/
 
 ## UX Flow
 1. **Dashboard Screen**
-   - Left: Map with depot-centered Cartesian grid, packages as icons, routes colored per vehicle.
+   - Left: Map with depot-centered Cartesian grid, packages as icons, animated vehicle markers along routes.
    - Right: Panels for balance/trends, fleet utilization, agent metrics comparison.
-   - Bottom: Timeline scrubber showing events (day start, assignments, validations, completion).
+   - Bottom: Timeline scrubber showing events (day start, assignments, validations, completion) with active-event highlight.
 2. **Playback Controls**
    - Play/pause to animate execution using snapshots.
    - Dropdown to select day (populated from exported snapshots).
@@ -52,4 +52,4 @@ ui/
 2. Build `MapView` with scalable grid and icon rendering (Pygame primitives initially).
 3. Create HUD panels for balance and agent metrics.
 4. Hook event timeline to snapshots.
-- **Keyboard Controls (current prototype):** `←/→` cycle snapshots, `R` reload directory, `Esc` exit.
+- **Keyboard Controls (current prototype):** `Space` play/pause animation, `←/→` cycle snapshots, `R` reload directory, `Esc` exit.

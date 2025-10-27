@@ -74,6 +74,7 @@ class VisualizationApp:
         self._clock = pygame.time.Clock()
         self._running = True
         self._font_header = pygame.font.SysFont(theme.FONT_DEFAULT, 28)
+        self._font_small = pygame.font.SysFont(theme.FONT_DEFAULT, 16)
         self._create_views(screen)
 
         while self._running:
@@ -134,6 +135,15 @@ class VisualizationApp:
         day_events = [event for event in self.snapshot.events if event.get("day") == day] or self.snapshot.events
         active_event_index = self._active_event_index(day_events)
         self._timeline_view.render(day_events, active_index=active_event_index)
+        if self._font_small and day_events and active_event_index is not None:
+            idx = min(active_event_index, len(day_events) - 1)
+            event = day_events[idx]
+            desc = event.get("description") or event.get("event_type", "")
+            phase_label = event.get("phase", "").title()
+            info_text = f"{phase_label} · {desc}" if phase_label else desc
+            info_surface = self._font_small.render(info_text[:120], True, theme.TEXT_MUTED)
+            timeline_bounds = self._timeline_view.bounds
+            screen.blit(info_surface, (timeline_bounds.left + 20, timeline_bounds.bottom - 28))
 
         header_text = self._font_header.render(
             f"Day {day} Snapshot - Pending {len(pending_packages)} | Delivered {len(delivered_packages)}",

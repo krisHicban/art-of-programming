@@ -26,7 +26,7 @@ python -m delivery_fleet_game.main
   ```bash
   python -m delivery_fleet_game.preview
   ```
-  Controls: `←/→` cycle between days, `R` reload snapshot files, `Esc` quits.
+  Controls: `Space` play/pause animation, `←/→` cycle between days, `R` reload snapshot files, `Esc` quits.
 
 ## Repository Layout
 ```

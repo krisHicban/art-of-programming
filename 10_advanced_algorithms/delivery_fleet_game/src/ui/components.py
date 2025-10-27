@@ -80,8 +80,8 @@ class Button:
         pygame.draw.rect(surface, color, self.rect, border_radius=5)
         pygame.draw.rect(surface, Colors.BORDER_LIGHT, self.rect, 2, border_radius=5)
 
-        # Draw text
-        font = pygame.font.Font(None, FontSizes.BODY + 2)
+        # Draw text - Use SysFont for better rendering
+        font = pygame.font.SysFont('arial', FontSizes.BODY - 2, bold=True)
         text_color = Colors.TEXT_PRIMARY if self.enabled else Colors.TEXT_SECONDARY
         text_surface = font.render(self.text, True, text_color)
         text_rect = text_surface.get_rect(center=self.rect.center)
@@ -113,9 +113,9 @@ class Panel:
         # Border
         pygame.draw.rect(surface, Colors.BORDER_LIGHT, self.rect, 2, border_radius=8)
 
-        # Title
+        # Title - Use SysFont for better rendering
         if self.title:
-            font = pygame.font.Font(None, FontSizes.HEADING)
+            font = pygame.font.SysFont('arial', FontSizes.HEADING - 2, bold=True)
             text = font.render(self.title, True, Colors.TEXT_ACCENT)
             text_rect = text.get_rect(center=(self.rect.centerx, self.rect.top + 20))
             surface.blit(text, text_rect)
@@ -152,7 +152,8 @@ class TextDisplay:
 
     def render(self, surface: pygame.Surface):
         """Render text lines."""
-        font = pygame.font.Font(None, self.font_size)
+        # Use SysFont for better rendering
+        font = pygame.font.SysFont('arial', self.font_size)
         y_offset = 0
         line_height = self.font_size + 4
 
@@ -192,8 +193,9 @@ class StatDisplay:
 
     def render(self, surface: pygame.Surface):
         """Render stat display."""
-        label_font = pygame.font.Font(None, FontSizes.SMALL)
-        value_font = pygame.font.Font(None, FontSizes.HEADING)
+        # Use SysFont for better rendering
+        label_font = pygame.font.SysFont('arial', FontSizes.SMALL - 2)
+        value_font = pygame.font.SysFont('arial', FontSizes.HEADING, bold=True)
 
         # Render label
         label_surf = label_font.render(self.label, True, Colors.TEXT_SECONDARY)
@@ -265,8 +267,8 @@ class RadioButton:
         if self.selected:
             pygame.draw.circle(surface, Colors.TEXT_ACCENT, (self.x, self.y), self.radius - 3)
 
-        # Label
-        font = pygame.font.Font(None, FontSizes.BODY)
+        # Label - Use SysFont for better rendering
+        font = pygame.font.SysFont('arial', FontSizes.BODY - 2)
         text = font.render(self.label, True, Colors.TEXT_PRIMARY)
         surface.blit(text, (self.x + self.radius + 8, self.y - 8))
 
@@ -303,12 +305,13 @@ class Tooltip:
         if not self.visible or not self.text:
             return
 
-        font = pygame.font.Font(None, FontSizes.SMALL)
+        # Use SysFont for better anti-aliased rendering
+        font = pygame.font.SysFont('arial', FontSizes.SMALL)
         lines = self.text.split('\n')
 
         # Calculate tooltip size
         max_width = max(font.size(line)[0] for line in lines)
-        line_height = font.get_height()
+        line_height = font.get_height() + 2  # Add small spacing between lines
         tooltip_width = max_width + TOOLTIP_PADDING * 2
         tooltip_height = len(lines) * line_height + TOOLTIP_PADDING * 2
 
@@ -317,10 +320,13 @@ class Tooltip:
         x = min(x, WINDOW_WIDTH - tooltip_width - 10)
         y = min(y, WINDOW_HEIGHT - tooltip_height - 10)
 
-        # Draw background
+        # Draw background with shadow effect
+        shadow_rect = pygame.Rect(x + 2, y + 2, tooltip_width, tooltip_height)
+        pygame.draw.rect(surface, (0, 0, 0, 100), shadow_rect, border_radius=5)
+
         tooltip_rect = pygame.Rect(x, y, tooltip_width, tooltip_height)
-        pygame.draw.rect(surface, TOOLTIP_BG, tooltip_rect, border_radius=4)
-        pygame.draw.rect(surface, TOOLTIP_BORDER, tooltip_rect, 1, border_radius=4)
+        pygame.draw.rect(surface, TOOLTIP_BG, tooltip_rect, border_radius=5)
+        pygame.draw.rect(surface, TOOLTIP_BORDER, tooltip_rect, 2, border_radius=5)
 
         # Draw text
         y_offset = TOOLTIP_PADDING
