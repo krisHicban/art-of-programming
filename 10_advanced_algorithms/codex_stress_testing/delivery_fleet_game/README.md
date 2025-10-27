@@ -18,7 +18,10 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 python -m delivery_fleet_game.main
+python -m delivery_fleet_game.preview
 ```
+For UI Preview: The command bootstraps preview.py, which just wires up src/ui/app.py so you can look at the snapshots after you’ve played a day
+through the CLI.
 
 - The game auto-loads the most recent file from `savegames/` if present; otherwise it falls back to the seed template.
 - Use the CLI to assign packages manually or run the `Greedy Agent` for a first-fit plan, then validate/simulate to finish the day.

@@ -125,7 +125,7 @@ class DeliveryFleetApp:
         self.warning_color = Colors.PROFIT_NEGATIVE
 
         # Modals
-        self.vehicle_modal = Modal("Purchase Vehicle", 600, 500)
+        self.vehicle_modal = Modal("Purchase Vehicle", 650, 650)  # Larger for detailed specs
         self.capacity_warning_modal = Modal("⚠️ Insufficient Capacity", 600, 400)
         self.marketing_modal = Modal("📈 Marketing & Package Rate", 650, 450)
         self.day_summary_modal = Modal("📦 Day Summary", 700, 500)
@@ -380,33 +380,48 @@ class DeliveryFleetApp:
 
     def on_buy_vehicle(self):
         """Show vehicle purchase modal."""
-        content = [("Choose a vehicle to purchase:", Colors.TEXT_PRIMARY), ("", Colors.TEXT_PRIMARY)]
+        content = [
+            ("🚚 VEHICLE PURCHASE", Colors.TEXT_ACCENT),
+            ("", Colors.TEXT_PRIMARY),
+            (f"Your Balance: ${self.engine.game_state.balance:,.0f}", Colors.PROFIT_POSITIVE),
+            ("", Colors.TEXT_PRIMARY),
+        ]
 
-        # List vehicles
-        y_offset = 80
+        # List vehicles with detailed specs
+        y_offset = 100
         buttons = []
 
         for vtype_name, vtype in self.engine.vehicle_types.items():
             can_afford = vtype.purchase_price <= self.engine.game_state.balance
-            color = Colors.TEXT_PRIMARY if can_afford else Colors.TEXT_SECONDARY
+            name_color = Colors.TEXT_ACCENT if can_afford else Colors.TEXT_SECONDARY
+            spec_color = Colors.TEXT_PRIMARY if can_afford else Colors.TEXT_SECONDARY
 
-            content.append((f"{vtype.name}: {vtype.capacity_m3}m³, ${vtype.purchase_price:,}", color))
-            content.append((f"  Cost: ${vtype.cost_per_km}/km, Range: {vtype.max_range_km}km", Colors.TEXT_SECONDARY))
+            # Vehicle name with affordability indicator
+            affordability = "✓ AFFORDABLE" if can_afford else "✗ INSUFFICIENT FUNDS"
+            afford_color = Colors.PROFIT_POSITIVE if can_afford else Colors.PROFIT_NEGATIVE
+
+            content.append((f"━━━ {vtype.name.upper()} ━━━", name_color))
+            content.append((f"   Capacity: {vtype.capacity_m3:.0f} m³", spec_color))
+            content.append((f"   Purchase Price: ${vtype.purchase_price:,}", spec_color))
+            content.append((f"   Operating Cost: ${vtype.cost_per_km:.2f}/km", spec_color))
+            content.append((f"   Range: {vtype.max_range_km:.0f} km", spec_color))
+            content.append((f"   {affordability}", afford_color))
+            content.append(("", Colors.TEXT_PRIMARY))
 
             # Create button
-            btn_x = self.vehicle_modal.x + 50
+            btn_x = self.vehicle_modal.x + 150
             btn_y = self.vehicle_modal.y + y_offset
-            btn_width = 500
+            btn_width = 300
 
-            btn = Button(btn_x, btn_y, btn_width, 35,
-                        f"Buy {vtype.name}",
+            btn = Button(btn_x, btn_y, btn_width, 38,
+                        f"Purchase {vtype.name} - ${vtype.purchase_price:,}",
                         lambda vt=vtype_name: self.purchase_vehicle(vt))
             btn.enabled = can_afford
             buttons.append(btn)
 
-            y_offset += 60
+            y_offset += 150  # More spacing between vehicles
 
-        # Cancel button
+        # Cancel button at bottom
         cancel_btn = Button(self.vehicle_modal.x + 200, self.vehicle_modal.y + self.vehicle_modal.height - 60,
                           200, 40, "Cancel", lambda: self.vehicle_modal.hide())
         buttons.append(cancel_btn)

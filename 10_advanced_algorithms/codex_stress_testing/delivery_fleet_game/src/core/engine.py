@@ -342,7 +342,7 @@ class GameEngine:
             print("Route summary:")
             print(" | ".join(headers))
             for row in rows:
-                print(" | ".join(row))
+                print(" | ".join(str(item) for item in row))
         print(
             f"Totals -> Vehicles: {metrics.vehicle_count}, Packages: {metrics.package_count}, "
             f"Distance: {metrics.total_distance:.2f} km, Revenue: ${metrics.total_revenue:.2f}, "

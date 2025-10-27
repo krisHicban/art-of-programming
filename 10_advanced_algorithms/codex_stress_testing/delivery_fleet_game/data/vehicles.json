@@ -1,19 +1,19 @@
 {
   "vehicle_types": {
     "small_van": {
-      "capacity_m3": 10,
+      "capacity_m3": 35,
       "cost_per_km": 0.5,
       "purchase_price": 15000,
       "max_range_km": 200
     },
     "medium_truck": {
-      "capacity_m3": 25,
+      "capacity_m3": 70,
       "cost_per_km": 0.8,
       "purchase_price": 35000,
       "max_range_km": 300
     },
     "large_truck": {
-      "capacity_m3": 50,
+      "capacity_m3": 150,
       "cost_per_km": 1.2,
       "purchase_price": 65000,
       "max_range_km": 400
