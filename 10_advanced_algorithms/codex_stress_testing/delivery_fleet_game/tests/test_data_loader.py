@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+from models.game_state import AgentRun  # type: ignore
 from models.package import Package  # type: ignore
 from utils import data_loader  # type: ignore
 
@@ -44,6 +45,25 @@ def test_save_and_load_game_state_preserves_packages(tmp_path: Path) -> None:
     state.packages_pending.append(pending_pkg)
     state.packages_in_transit.append(in_transit_pkg)
     state.packages_delivered.append(delivered_pkg)
+    state.record_agent_run(
+        AgentRun(
+            day=state.current_day,
+            agent_name="Test Agent",
+            success=True,
+            packages_assigned=1,
+            packages_unassigned=0,
+            total_distance=10.0,
+            total_revenue=100.0,
+            total_cost=30.0,
+            total_profit=70.0,
+        )
+    )
+    state.log_event(
+        phase="planning",
+        event_type="test_event",
+        description="Testing event logging.",
+        payload={"key": "value"},
+    )
 
     save_path = tmp_path / "savegame.json"
     data_loader.save_game_state(state, save_path)
@@ -56,3 +76,9 @@ def test_save_and_load_game_state_preserves_packages(tmp_path: Path) -> None:
     assert "pkg_pending" in restored_pending_ids
     assert "pkg_transit" in restored_transit_ids
     assert "pkg_delivered" in restored_delivered_ids
+    assert restored.agent_history
+    run = restored.agent_history[-1]
+    assert run.agent_name == "Test Agent"
+    assert run.total_profit == 70.0
+    assert restored.events
+    assert restored.events[-1].event_type == "test_event"

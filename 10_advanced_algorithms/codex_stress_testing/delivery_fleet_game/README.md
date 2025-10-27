@@ -22,6 +22,11 @@ python -m delivery_fleet_game.main
 
 - The game auto-loads the most recent file from `savegames/` if present; otherwise it falls back to the seed template.
 - Use the CLI to assign packages manually or run the `Greedy Agent` for a first-fit plan, then validate/simulate to finish the day.
+- After completing a day or exiting with autosave, snapshots land in `snapshots/`. Launch the work-in-progress viewer:
+  ```bash
+  python -m delivery_fleet_game.preview
+  ```
+  Controls: `←/→` cycle between days, `R` reload snapshot files, `Esc` quits.
 
 ## Repository Layout
 ```
@@ -29,6 +34,7 @@ delivery_fleet_game/
 ├── data/                 # Seed JSON data for map, vehicles, packages
 ├── savegames/            # Generated save files (ignored in git)
 ├── src/                  # Application source modules
+│   ├── ui/               # Visualization prototype (Pygame)
 ├── tests/                # pytest test suite + fixtures
 └── docs/                 # Design and planning artifacts
 ```

@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 from ..models import GameState, Package, Route, DeliveryMap, VehicleType
 from ..utils import DataLoader, calculate_route_metrics
+from ..utils.package_generator import PackageGenerator
 
 
 class GameEngine:
@@ -47,8 +48,10 @@ class GameEngine:
         try:
             self.vehicle_types = self.data_loader.load_vehicle_types()
             self.delivery_map = self.data_loader.load_map()
+            self.package_generator = PackageGenerator(self.delivery_map)
             print(f"✓ Loaded {len(self.vehicle_types)} vehicle types")
             print(f"✓ Loaded map: {self.delivery_map}")
+            print(f"✓ Initialized package generator")
         except FileNotFoundError as e:
             print(f"Error loading data: {e}")
             raise
@@ -101,7 +104,10 @@ class GameEngine:
 
     def load_day_packages(self, day: Optional[int] = None) -> List[Package]:
         """
-        Load packages for a specific day.
+        Load or generate packages for a specific day.
+
+        Uses dynamic generation based on marketing level.
+        Falls back to JSON files for days 1-5 if available.
 
         Args:
             day: Day number (uses current day if None)
@@ -112,14 +118,22 @@ class GameEngine:
         if day is None:
             day = self.game_state.current_day if self.game_state else 1
 
-        filename = f"packages_day{day}.json"
-        try:
-            packages = self.data_loader.load_packages(filename)
-            print(f"✓ Loaded {len(packages)} packages for day {day}")
-            return packages
-        except FileNotFoundError:
-            print(f"No packages found for day {day}")
-            return []
+        # For days 1-5, try loading from JSON first (for consistency)
+        if day <= 5:
+            filename = f"packages_day{day}.json"
+            try:
+                packages = self.data_loader.load_packages(filename)
+                print(f"✓ Loaded {len(packages)} packages for day {day} from file")
+                return packages
+            except FileNotFoundError:
+                pass  # Fall through to dynamic generation
+
+        # Dynamic generation based on marketing level
+        target_volume = self.game_state.get_daily_package_volume()
+        print(f"📦 Generating packages for day {day} (Marketing Lvl {self.game_state.marketing_level}: {target_volume:.1f}m³)")
+
+        packages = self.package_generator.generate_packages(target_volume, day)
+        return packages
 
     def start_day(self) -> None:
         """

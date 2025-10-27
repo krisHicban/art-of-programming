@@ -81,6 +81,10 @@ class GameState:
         self.current_routes: List[Route] = []
         self.history: List[DayHistory] = []
 
+        # Marketing system
+        self.marketing_level: int = 1  # Level 1-5
+        self.base_package_volume: float = 25.0  # Base daily m³
+
     def add_vehicle(self, vehicle: Vehicle) -> None:
         """
         Add a vehicle to the fleet.
@@ -277,6 +281,74 @@ class GameState:
             Last DayHistory record, or None if no history
         """
         return self.history[-1] if self.history else None
+
+    def get_marketing_cost(self) -> float:
+        """
+        Get cost to upgrade marketing to next level.
+
+        Returns:
+            Cost in dollars, or 0 if max level
+        """
+        costs = {
+            1: 20000,   # Level 1→2: $20K
+            2: 35000,   # Level 2→3: $35K
+            3: 55000,   # Level 3→4: $55K
+            4: 80000,   # Level 4→5: $80K
+            5: 0        # Max level
+        }
+        return costs.get(self.marketing_level, 0)
+
+    def get_daily_package_volume(self) -> float:
+        """
+        Calculate expected daily package volume based on marketing level.
+
+        Returns:
+            Expected total volume in m³
+        """
+        # Volume increases with marketing level
+        multipliers = {
+            1: 1.0,    # 25m³ base
+            2: 1.3,    # 32.5m³
+            3: 1.7,    # 42.5m³
+            4: 2.2,    # 55m³
+            5: 2.8     # 70m³
+        }
+        return self.base_package_volume * multipliers.get(self.marketing_level, 1.0)
+
+    def upgrade_marketing(self) -> bool:
+        """
+        Upgrade marketing level if affordable.
+
+        Returns:
+            True if upgrade successful, False if not enough funds or max level
+        """
+        if self.marketing_level >= 5:
+            return False  # Max level
+
+        cost = self.get_marketing_cost()
+        if self.balance >= cost:
+            self.balance -= cost
+            self.marketing_level += 1
+            return True
+        return False
+
+    def get_marketing_info(self) -> dict:
+        """
+        Get marketing system information.
+
+        Returns:
+            Dictionary with marketing stats
+        """
+        return {
+            'level': self.marketing_level,
+            'current_volume': self.get_daily_package_volume(),
+            'next_level_volume': self.base_package_volume * {
+                1: 1.3, 2: 1.7, 3: 2.2, 4: 2.8, 5: 2.8
+            }.get(self.marketing_level, 2.8),
+            'upgrade_cost': self.get_marketing_cost(),
+            'can_afford': self.balance >= self.get_marketing_cost(),
+            'is_max_level': self.marketing_level >= 5
+        }
 
     def __str__(self) -> str:
         return (f"Day {self.current_day} | Balance: ${self.balance:.2f} | "

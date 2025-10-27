@@ -4,6 +4,7 @@ from core.route_builder import build_route  # type: ignore
 from core.router import euclidean_distance, route_distance  # type: ignore
 from models.package import Package  # type: ignore
 from models.vehicle import Vehicle  # type: ignore
+from utils.metrics import aggregate_routes  # type: ignore
 
 
 def test_euclidean_distance_zero() -> None:
@@ -32,3 +33,8 @@ def test_build_route_includes_depot() -> None:
     assert route.stops[-1] == (0, 0)
     assert route.total_volume == 3
     assert route.total_revenue == 80
+
+    metrics = aggregate_routes([route])
+    assert metrics.vehicle_count == 1
+    assert metrics.package_count == 2
+    assert metrics.total_revenue == 80

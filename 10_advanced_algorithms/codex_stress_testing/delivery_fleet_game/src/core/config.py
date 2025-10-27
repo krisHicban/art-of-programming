@@ -11,6 +11,7 @@ class Settings:
     project_root: Path
     data_dir: Path
     savegame_dir: Path
+    snapshot_dir: Path
     starting_balance: float = 100_000.0
     package_manifest_pattern: str = "packages_day{day}.json"
     vehicles_file: Path = field(init=False)
@@ -27,9 +28,12 @@ def load_settings() -> Settings:
     project_root = Path(__file__).resolve().parents[2]
     data_dir = project_root / "data"
     savegame_dir = project_root / "savegames"
+    snapshot_dir = project_root / "snapshots"
     savegame_dir.mkdir(parents=True, exist_ok=True)
+    snapshot_dir.mkdir(parents=True, exist_ok=True)
     return Settings(
         project_root=project_root,
         data_dir=data_dir,
         savegame_dir=savegame_dir,
+        snapshot_dir=snapshot_dir,
     )

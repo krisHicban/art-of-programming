@@ -14,12 +14,13 @@ from core.config import Settings, load_settings
 from core.ledger import Ledger
 from core.route_builder import build_route
 from core.validator import ValidationError, validate_routes
-from models.game_state import DailySummary, GameState
+from models.game_state import AgentRun, DailySummary, GameState
 from models.map import MapConfig
 from models.package import Package
 from models.route import Route
 from models.vehicle import Vehicle
 from utils import data_loader
+from utils.exporter import export_state_snapshot
 from utils.metrics import RouteMetrics, aggregate_routes
 
 try:
@@ -79,6 +80,16 @@ class GameEngine:
         new_packages = data_loader.load_packages_for_day(state.current_day)
         existing_ids = {pkg.id for pkg in state.packages_pending}
         state.packages_pending.extend(pkg for pkg in new_packages if pkg.id not in existing_ids)
+        state.log_event(
+            phase="planning",
+            event_type="day_start",
+            description=f"Day {state.current_day} planning phase opened.",
+            payload={
+                "new_packages": len(new_packages),
+                "pending_total": len(state.packages_pending),
+                "balance": state.balance,
+            },
+        )
 
         assignment_manager = AssignmentManager(state.fleet)
 
@@ -111,6 +122,18 @@ class GameEngine:
             elif choice == "Q":
                 self._return_all_assignments_to_pending(state, assignment_manager)
                 self._save_progress(state, filename="autosave.json")
+                autosave_snapshot = self.settings.snapshot_dir / "autosave.json"
+                export_state_snapshot(state, map_config, autosave_snapshot)
+                self.console.show_message(f"Snapshot exported to {autosave_snapshot}")
+                state.log_event(
+                    phase="planning",
+                    event_type="autosave_exit",
+                    description="Planning ended without executing day.",
+                    payload={
+                        "pending_packages": len(state.packages_pending),
+                        "snapshot": str(autosave_snapshot.name),
+                    },
+                )
                 self.console.show_message("Progress saved. Exiting without running day.")
                 break
             else:
@@ -144,6 +167,17 @@ class GameEngine:
             f"Assigned package {package.id} to vehicle {vehicle_id} "
             f"({package.volume_m3:.2f} m3 | ${package.payment_received:.2f})"
         )
+        state.log_event(
+            phase="planning",
+            event_type="manual_assignment",
+            description=f"Package {package.id} assigned to vehicle {vehicle_id}.",
+            payload={
+                "package_id": package.id,
+                "vehicle_id": vehicle_id,
+                "volume_m3": package.volume_m3,
+                "payment": package.payment_received,
+            },
+        )
 
     def _unassign_package(self, state: GameState, assignment_manager: AssignmentManager) -> None:
         package_id = self.console.prompt("Package id to unassign")
@@ -155,6 +189,12 @@ class GameEngine:
         if package is not None:
             state.packages_pending.append(package)
             self.console.show_message(f"Returned package {package_id} to pending list.")
+            state.log_event(
+                phase="planning",
+                event_type="manual_unassignment",
+                description=f"Package {package_id} returned to pending list.",
+                payload={"package_id": package_id, "vehicle_id": assignment.vehicle.id},
+            )
         else:
             self.console.show_error(f"Package '{package_id}' could not be removed.")
 
@@ -196,6 +236,12 @@ class GameEngine:
             validate_routes(routes, vehicles, depot=map_config.depot)
         except ValidationError as exc:
             self.console.show_error(str(exc))
+            state.log_event(
+                phase="planning",
+                event_type="validation_error",
+                description=str(exc),
+                payload={"vehicle_ids": [route.vehicle_id for route in routes]},
+            )
             return False
 
         ledger = Ledger()
@@ -235,6 +281,23 @@ class GameEngine:
         filename = f"day_{completed_day:02d}.json"
         self._save_progress(state, filename=filename, quiet=True)
         self.console.show_message(f"Progress saved to {self.settings.savegame_dir / filename}")
+        routes = [route for route, _ in route_plan]
+        snapshot_path = self.settings.snapshot_dir / f"day_{completed_day:02d}.json"
+        export_state_snapshot(state, map_config, snapshot_path, routes=routes)
+        self.console.show_message(f"Snapshot exported to {snapshot_path}")
+        state.log_event(
+            phase="execution",
+            event_type="day_completed",
+            description=f"Day {completed_day} completed.",
+            payload={
+                "revenue": revenue,
+                "costs": costs,
+                "profit": profit,
+                "packages_delivered": len(delivered),
+                "save_file": filename,
+            },
+            day_override=completed_day,
+        )
         return True
 
     def _return_all_assignments_to_pending(
@@ -361,7 +424,64 @@ class GameEngine:
                 f"{len(plan.unassigned)} packages could not be assigned: {preview}{more}"
             )
 
-        self.console.display_assignments(assignment_manager.summary())
+        summaries = assignment_manager.summary()
+        self.console.display_assignments(summaries)
+
+        route_plan: List[Tuple[Route, Assignment]] = []
+        for assignment in summaries:
+            if not assignment.packages:
+                continue
+            route = build_route(
+                vehicle=assignment.vehicle,
+                packages=assignment.packages,
+                depot=map_config.depot,
+            )
+            route_plan.append((route, assignment))
+
+        metrics: RouteMetrics
+        if route_plan:
+            self._print_route_summary(route_plan)
+            metrics = aggregate_routes([route for route, _ in route_plan])
+        else:
+            metrics = RouteMetrics(
+                total_distance=0.0,
+                total_revenue=0.0,
+                total_cost=0.0,
+                total_profit=0.0,
+                vehicle_count=0,
+                package_count=0,
+            )
+
+        state.record_agent_run(
+            AgentRun(
+                day=state.current_day,
+                agent_name=agent.name,
+                success=plan.success,
+                packages_assigned=metrics.package_count,
+                packages_unassigned=len(plan.unassigned),
+                total_distance=metrics.total_distance,
+                total_revenue=metrics.total_revenue,
+                total_cost=metrics.total_cost,
+                total_profit=metrics.total_profit,
+                notes=plan.notes,
+            )
+        )
+        state.log_event(
+            phase="planning",
+            event_type="agent_plan",
+            description=f"{agent.name} generated a plan.",
+            payload={
+                "agent": agent.name,
+                "success": plan.success,
+                "packages_assigned": metrics.package_count,
+                "packages_unassigned": len(plan.unassigned),
+                "total_distance": metrics.total_distance,
+                "total_revenue": metrics.total_revenue,
+                "total_cost": metrics.total_cost,
+                "total_profit": metrics.total_profit,
+            },
+        )
+
         if plan.success:
             if self.console.confirm("Run simulation with this plan now? (y/n)"):
                 self._simulate_day(state, map_config, assignment_manager, vehicles)

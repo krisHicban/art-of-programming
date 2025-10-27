@@ -342,6 +342,128 @@ class MapRenderer:
         text_rect = text.get_rect(center=(pos_screen[0], pos_screen[1] + rect_height + 8))
         self.surface.blit(text, text_rect)
 
+    def render_legend(self):
+        """Render an interactive legend explaining map elements."""
+        # Legend box in bottom-left corner
+        legend_x = 15
+        legend_y = MAP_HEIGHT - 160
+        legend_width = 200
+        legend_height = 145
+
+        # Background
+        legend_rect = pygame.Rect(legend_x, legend_y, legend_width, legend_height)
+        pygame.draw.rect(self.surface, Colors.PANEL_BG, legend_rect, border_radius=5)
+        pygame.draw.rect(self.surface, Colors.BORDER_LIGHT, legend_rect, 2, border_radius=5)
+
+        # Title
+        font_title = pygame.font.Font(None, FontSizes.BODY + 2)
+        title = font_title.render("MAP LEGEND", True, Colors.TEXT_ACCENT)
+        self.surface.blit(title, (legend_x + 10, legend_y + 8))
+
+        # Legend items
+        font_small = pygame.font.Font(None, FontSizes.SMALL)
+        y_offset = 30
+
+        # Depot
+        pygame.draw.circle(self.surface, Colors.DEPOT, (legend_x + 15, legend_y + y_offset), 8)
+        text = font_small.render("Depot (Home Base)", True, Colors.TEXT_PRIMARY)
+        self.surface.blit(text, (legend_x + 30, legend_y + y_offset - 6))
+        y_offset += 22
+
+        # Pending packages
+        pygame.draw.circle(self.surface, Colors.PACKAGE_PENDING, (legend_x + 15, legend_y + y_offset), 6)
+        text = font_small.render("Package (Pending)", True, Colors.TEXT_PRIMARY)
+        self.surface.blit(text, (legend_x + 30, legend_y + y_offset - 6))
+        y_offset += 20
+
+        # Delivered packages
+        pygame.draw.circle(self.surface, Colors.PACKAGE_DELIVERED, (legend_x + 15, legend_y + y_offset), 6)
+        text = font_small.render("Package (Delivered)", True, Colors.TEXT_PRIMARY)
+        self.surface.blit(text, (legend_x + 30, legend_y + y_offset - 6))
+        y_offset += 20
+
+        # High priority
+        pygame.draw.circle(self.surface, Colors.PACKAGE_PRIORITY_HIGH, (legend_x + 15, legend_y + y_offset), 6)
+        text = font_small.render("High Priority (3+)", True, Colors.TEXT_PRIMARY)
+        self.surface.blit(text, (legend_x + 30, legend_y + y_offset - 6))
+        y_offset += 22
+
+        # Route line
+        pygame.draw.line(self.surface, Colors.ROUTE_COLORS[0],
+                        (legend_x + 10, legend_y + y_offset),
+                        (legend_x + 20, legend_y + y_offset), 3)
+        text = font_small.render("Delivery Route", True, Colors.TEXT_PRIMARY)
+        self.surface.blit(text, (legend_x + 30, legend_y + y_offset - 6))
+        y_offset += 22
+
+        # Vehicle
+        veh_rect = pygame.Rect(legend_x + 11, legend_y + y_offset - 4, 10, 8)
+        pygame.draw.rect(self.surface, Colors.VEHICLE_ACTIVE, veh_rect, border_radius=1)
+        text = font_small.render("Vehicle", True, Colors.TEXT_PRIMARY)
+        self.surface.blit(text, (legend_x + 30, legend_y + y_offset - 6))
+
+        # Hover hint
+        hint_font = pygame.font.Font(None, FontSizes.TINY + 6)
+        hint = hint_font.render("💡 Hover for details!", True, Colors.TEXT_ACCENT)
+        self.surface.blit(hint, (legend_x + 15, legend_y + legend_height - 18))
+
+    def get_package_at_mouse(self, mouse_pos: Tuple[int, int], packages: List[Package]) -> Optional[Package]:
+        """
+        Check if mouse is hovering over a package.
+
+        Args:
+            mouse_pos: Screen coordinates of mouse
+            packages: List of packages to check
+
+        Returns:
+            Package under mouse, or None
+        """
+        # Adjust for map offset
+        map_mouse_x = mouse_pos[0] - MAP_X
+        map_mouse_y = mouse_pos[1] - MAP_Y
+
+        if map_mouse_x < 0 or map_mouse_x > MAP_WIDTH or map_mouse_y < 0 or map_mouse_y > MAP_HEIGHT:
+            return None
+
+        for pkg in packages:
+            pkg_screen = self.world_to_screen(pkg.destination)
+            distance = math.sqrt((pkg_screen[0] - map_mouse_x)**2 + (pkg_screen[1] - map_mouse_y)**2)
+            if distance < PACKAGE_HOVER_RADIUS + 2:
+                return pkg
+        return None
+
+    def get_vehicle_at_mouse(self, mouse_pos: Tuple[int, int], vehicles: List[Vehicle]) -> Optional[Vehicle]:
+        """
+        Check if mouse is hovering over a vehicle.
+
+        Args:
+            mouse_pos: Screen coordinates of mouse
+            vehicles: List of vehicles to check
+
+        Returns:
+            Vehicle under mouse, or None
+        """
+        # Adjust for map offset
+        map_mouse_x = mouse_pos[0] - MAP_X
+        map_mouse_y = mouse_pos[1] - MAP_Y
+
+        if map_mouse_x < 0 or map_mouse_x > MAP_WIDTH or map_mouse_y < 0 or map_mouse_y > MAP_HEIGHT:
+            return None
+
+        for veh in vehicles:
+            veh_screen = self.world_to_screen(veh.current_location)
+            rect_width = VEHICLE_SIZE * 2
+            rect_height = VEHICLE_SIZE
+            rect = pygame.Rect(
+                veh_screen[0] - rect_width // 2,
+                veh_screen[1] - rect_height // 2,
+                rect_width,
+                rect_height
+            )
+            if rect.collidepoint(map_mouse_x, map_mouse_y):
+                return veh
+        return None
+
     def render(self):
         """Full render of the map."""
         self.render_map_background()

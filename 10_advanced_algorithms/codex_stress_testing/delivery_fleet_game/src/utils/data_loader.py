@@ -10,7 +10,7 @@ import json
 from models.map import Location, MapConfig, Point
 from models.package import Package
 from models.vehicle import Vehicle
-from models.game_state import DailySummary, GameState
+from models.game_state import AgentRun, DailySummary, GameEvent, GameState
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -125,6 +125,34 @@ def load_game_state(
     state.packages_pending.extend(packages_from_iterable(payload.get("packages_pending", [])))
     state.packages_in_transit.extend(packages_from_iterable(payload.get("packages_in_transit", [])))
     state.packages_delivered.extend(packages_from_iterable(payload.get("packages_delivered", [])))
+
+    for run in payload.get("agent_history", []):
+        state.agent_history.append(
+            AgentRun(
+                day=int(run["day"]),
+                agent_name=run["agent_name"],
+                success=bool(run.get("success", True)),
+                packages_assigned=int(run.get("packages_assigned", 0)),
+                packages_unassigned=int(run.get("packages_unassigned", 0)),
+                total_distance=float(run.get("total_distance", 0.0)),
+                total_revenue=float(run.get("total_revenue", 0.0)),
+                total_cost=float(run.get("total_cost", 0.0)),
+                total_profit=float(run.get("total_profit", 0.0)),
+                notes=run.get("notes"),
+            )
+        )
+
+    for event in payload.get("events", []):
+        state.events.append(
+            GameEvent(
+                timestamp=event.get("timestamp", ""),
+                day=int(event.get("day", state.current_day)),
+                phase=event.get("phase", "unknown"),
+                event_type=event.get("event_type", "unknown"),
+                description=event.get("description", ""),
+                payload=event.get("payload", {}),
+            )
+        )
     return state
 
 
@@ -137,6 +165,8 @@ def save_game_state(state: GameState, path: Path) -> None:
         "packages_pending": [package_to_dict(pkg) for pkg in state.packages_pending],
         "packages_in_transit": [package_to_dict(pkg) for pkg in state.packages_in_transit],
         "packages_delivered": [package_to_dict(pkg) for pkg in state.packages_delivered],
+        "agent_history": [asdict(run) for run in state.agent_history],
+        "events": [asdict(event) for event in state.events],
     }
     with path.open("w", encoding="utf-8") as handle:
         json.dump(serializable, handle, indent=2)
