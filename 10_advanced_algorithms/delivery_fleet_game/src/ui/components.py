@@ -194,8 +194,8 @@ class StatDisplay:
     def render(self, surface: pygame.Surface):
         """Render stat display."""
         # Use SysFont for better rendering
-        label_font = pygame.font.SysFont('arial', FontSizes.SMALL - 2)
-        value_font = pygame.font.SysFont('arial', FontSizes.HEADING, bold=True)
+        label_font = pygame.font.SysFont('arial', FontSizes.SMALL - 3)
+        value_font = pygame.font.SysFont('arial', FontSizes.HEADING - 2, bold=True)
 
         # Render label
         label_surf = label_font.render(self.label, True, Colors.TEXT_SECONDARY)
@@ -203,7 +203,7 @@ class StatDisplay:
 
         # Render value
         value_surf = value_font.render(self.value, True, self.value_color)
-        surface.blit(value_surf, (self.x, self.y + 18))
+        surface.blit(value_surf, (self.x, self.y + 16))
 
 
 class RadioButton:

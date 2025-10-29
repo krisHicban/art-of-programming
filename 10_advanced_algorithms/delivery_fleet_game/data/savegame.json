@@ -1,0 +1,45 @@
+{
+  "current_day": 2,
+  "balance": 35128.91108413544,
+  "fleet": [
+    {
+      "id": "veh_001",
+      "type": "small_van",
+      "purchase_day": 0,
+      "current_location": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "id": "veh_002",
+      "type": "medium_truck",
+      "purchase_day": 0,
+      "current_location": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "id": "veh_003",
+      "type": "large_truck",
+      "purchase_day": 2,
+      "current_location": {
+        "x": 0.0,
+        "y": 0.0
+      }
+    }
+  ],
+  "history": [
+    {
+      "day": 1,
+      "packages_delivered": 10,
+      "packages_attempted": 10,
+      "revenue": 490,
+      "costs": 361.0889158645554,
+      "profit": 128.91108413544458,
+      "agent_used": "greedy",
+      "balance_end": 100128.91108413544
+    }
+  ]
+}

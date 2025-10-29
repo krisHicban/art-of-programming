@@ -71,6 +71,7 @@ class GreedyAgent(RouteAgent):
         # Step 2: Assign packages to vehicles (First-Fit Decreasing)
         routes = []
         available_vehicles = fleet.copy()
+        unassigned_packages = []
 
         for pkg in sorted_packages:
             # Try to fit in existing route
@@ -82,24 +83,32 @@ class GreedyAgent(RouteAgent):
 
             # Need new vehicle
             if not placed:
-                if not available_vehicles:
-                    print(f"[{self.name}] Warning: No more vehicles! Package {pkg.id} not assigned.")
-                    continue
+                if available_vehicles:
+                    # Create new route with new vehicle
+                    vehicle = available_vehicles.pop(0)
+                    new_route = Route(
+                        vehicle=vehicle,
+                        packages=[pkg],
+                        stops=[],
+                        delivery_map=self.delivery_map
+                    )
+                    routes.append(new_route)
+                else:
+                    # No more vehicles - track unassigned
+                    unassigned_packages.append(pkg)
 
-                vehicle = available_vehicles.pop(0)
-                new_route = Route(
-                    vehicle=vehicle,
-                    packages=[pkg],
-                    stops=[],
-                    delivery_map=self.delivery_map
-                )
-                routes.append(new_route)
+        # Report unassigned packages if any
+        if unassigned_packages:
+            total_unassigned_volume = sum(p.volume_m3 for p in unassigned_packages)
+            print(f"[{self.name}] Warning: {len(unassigned_packages)} packages ({total_unassigned_volume:.1f}m³) could not be assigned - insufficient capacity")
 
         # Step 3: Optimize stop order for each route
         for route in routes:
             route.stops = self._optimize_route_stops(route.packages)
 
-        print(f"[{self.name}] Created {len(routes)} routes")
+        # Summary
+        total_packages_assigned = sum(len(r.packages) for r in routes)
+        print(f"[{self.name}] Created {len(routes)} routes with {total_packages_assigned}/{len(packages)} packages")
 
         return routes
 

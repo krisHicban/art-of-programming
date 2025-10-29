@@ -6,7 +6,7 @@ Defines colors, fonts, layout dimensions, and other visual constants.
 
 # Window Dimensions
 WINDOW_WIDTH = 1200
-WINDOW_HEIGHT = 800
+WINDOW_HEIGHT = 1000  # Back to standard, will use scrolling for manual mode if needed
 FPS = 60
 
 # Layout Dimensions

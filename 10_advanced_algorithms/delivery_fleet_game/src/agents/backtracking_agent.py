@@ -52,6 +52,7 @@ class BacktrackingAgent(RouteAgent):
         # State for search
         self.best_solution: Optional[List[Route]] = None
         self.best_profit: float = float('-inf')
+        self.best_packages_delivered: int = 0  # Prioritize number of packages
         self.nodes_explored: int = 0
 
     def plan_routes(self, packages: List[Package], fleet: List[Vehicle]) -> List[Route]:
@@ -80,6 +81,7 @@ class BacktrackingAgent(RouteAgent):
         # Reset search state
         self.best_solution = None
         self.best_profit = float('-inf')
+        self.best_packages_delivered = 0
         self.nodes_explored = 0
 
         # Initialize empty routes for each vehicle
@@ -92,7 +94,7 @@ class BacktrackingAgent(RouteAgent):
         self._backtrack(packages, initial_routes, 0)
 
         print(f"[{self.name}] Explored {self.nodes_explored} nodes")
-        print(f"[{self.name}] Best profit found: ${self.best_profit:.2f}")
+        print(f"[{self.name}] Best solution: {self.best_packages_delivered}/{len(packages)} packages, profit ${self.best_profit:.2f}")
 
         if self.best_solution is None:
             print(f"[{self.name}] No valid solution found!")
@@ -121,13 +123,20 @@ class BacktrackingAgent(RouteAgent):
         """
         self.nodes_explored += 1
 
-        # Base case: all packages assigned
+        # Base case: all packages considered
         if package_idx >= len(remaining_packages):
-            # Calculate profit of this solution
-            profit = sum(r.profit for r in current_routes if r.packages)
+            # Calculate metrics for this solution
+            routes_with_packages = [r for r in current_routes if r.packages]
+            packages_delivered = sum(len(r.packages) for r in routes_with_packages)
+            profit = sum(r.profit for r in routes_with_packages)
 
             # Update best solution if this is better
-            if profit > self.best_profit:
+            # Priority: 1) More packages delivered, 2) Higher profit
+            is_better = (packages_delivered > self.best_packages_delivered or
+                        (packages_delivered == self.best_packages_delivered and profit > self.best_profit))
+
+            if is_better:
+                self.best_packages_delivered = packages_delivered
                 self.best_profit = profit
                 # Deep copy routes to preserve this solution
                 self.best_solution = [
@@ -155,6 +164,11 @@ class BacktrackingAgent(RouteAgent):
 
                 # Backtrack: undo assignment
                 route.packages.pop()
+
+        # CRITICAL: ALWAYS try skipping this package (not just when it doesn't fit)
+        # This explores ALL possibilities and allows finding better combinations
+        # by deliberately leaving some packages undelivered
+        self._backtrack(remaining_packages, current_routes, package_idx + 1)
 
     def _optimize_stops(self, packages: List[Package]) -> List[tuple]:
         """
@@ -206,8 +220,18 @@ class PruningBacktrackingAgent(BacktrackingAgent):
 
         # Base case
         if package_idx >= len(remaining_packages):
-            profit = sum(r.profit for r in current_routes if r.packages)
-            if profit > self.best_profit:
+            # Calculate metrics for this solution
+            routes_with_packages = [r for r in current_routes if r.packages]
+            packages_delivered = sum(len(r.packages) for r in routes_with_packages)
+            profit = sum(r.profit for r in routes_with_packages)
+
+            # Update best solution if this is better
+            # Priority: 1) More packages delivered, 2) Higher profit
+            is_better = (packages_delivered > self.best_packages_delivered or
+                        (packages_delivered == self.best_packages_delivered and profit > self.best_profit))
+
+            if is_better:
+                self.best_packages_delivered = packages_delivered
                 self.best_profit = profit
                 self.best_solution = [
                     Route(
@@ -220,15 +244,25 @@ class PruningBacktrackingAgent(BacktrackingAgent):
                 ]
             return
 
-        # Bounding: calculate upper bound on possible profit
-        # If we can't beat best_profit, prune this branch
-        current_profit = sum(r.profit for r in current_routes if r.packages)
-        remaining_revenue = sum(pkg.payment for pkg in remaining_packages[package_idx:])
-        upper_bound = current_profit + remaining_revenue  # Optimistic: no costs
+        # Bounding: calculate upper bound on possible packages and profit
+        # If we can't beat best solution, prune this branch
+        current_packages = sum(len(r.packages) for r in current_routes if r.packages)
+        remaining_count = len(remaining_packages) - package_idx
+        max_possible_packages = current_packages + remaining_count
 
-        if upper_bound <= self.best_profit:
-            # Pruned!
+        # Prune if we can't deliver more packages than best
+        if max_possible_packages < self.best_packages_delivered:
             return
+
+        # If same number of packages possible, check profit bound
+        if max_possible_packages == self.best_packages_delivered:
+            current_profit = sum(r.profit for r in current_routes if r.packages)
+            remaining_revenue = sum(pkg.payment for pkg in remaining_packages[package_idx:])
+            upper_bound = current_profit + remaining_revenue  # Optimistic: no costs
+
+            if upper_bound <= self.best_profit:
+                # Pruned!
+                return
 
         package = remaining_packages[package_idx]
 
@@ -238,3 +272,8 @@ class PruningBacktrackingAgent(BacktrackingAgent):
                 route.packages.append(package)
                 self._backtrack(remaining_packages, current_routes, package_idx + 1)
                 route.packages.pop()
+
+        # CRITICAL: ALWAYS try skipping this package (not just when it doesn't fit)
+        # This explores ALL possibilities and allows finding better combinations
+        # by deliberately leaving some packages undelivered
+        self._backtrack(remaining_packages, current_routes, package_idx + 1)

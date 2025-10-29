@@ -21,6 +21,7 @@ from src.agents import GreedyAgent, BacktrackingAgent, PruningBacktrackingAgent
 from src.ui.constants import *
 from src.ui.map_renderer import MapRenderer
 from src.ui.components import Button, Panel, StatDisplay, RadioButton, Tooltip
+from src.ui.manual_mode import ManualModeManager
 
 
 class Modal:
@@ -39,11 +40,12 @@ class Modal:
         self.y = (WINDOW_HEIGHT - height) // 2
         self.rect = pygame.Rect(self.x, self.y, width, height)
 
-    def show(self, content_lines: list, buttons: list):
+    def show(self, content_lines: list, buttons: list, extra_data=None):
         """Show modal with content and buttons."""
         self.visible = True
         self.content_lines = content_lines
         self.buttons = buttons
+        self.extra_data = extra_data or {}
 
     def hide(self):
         """Hide modal."""
@@ -81,18 +83,56 @@ class Modal:
         title_rect = title_surf.get_rect(center=(self.rect.centerx, self.y + 30))
         screen.blit(title_surf, title_rect)
 
-        # Content - Use SysFont for better rendering
-        font_body = pygame.font.SysFont('arial', FontSizes.BODY - 2)  # Slightly smaller for modal content
-        y_offset = 70
-        for line, color in self.content_lines:
-            text_surf = font_body.render(line, True, color)
-            text_rect = text_surf.get_rect(center=(self.rect.centerx, self.y + y_offset))
-            screen.blit(text_surf, text_rect)
-            y_offset += 25
+        # Custom rendering for vehicle purchase modal
+        if self.title == "Purchase Vehicle" and len(self.content_lines) == 0:
+            self._render_vehicle_modal_content(screen)
+        else:
+            # Content - Use SysFont for better rendering
+            font_body = pygame.font.SysFont('arial', FontSizes.BODY - 2)  # Slightly smaller for modal content
+            y_offset = 70
+            for line, color in self.content_lines:
+                text_surf = font_body.render(line, True, color)
+                text_rect = text_surf.get_rect(center=(self.rect.centerx, self.y + y_offset))
+                screen.blit(text_surf, text_rect)
+                y_offset += 25
 
         # Buttons
         for button in self.buttons:
             button.render(screen)
+
+    def _render_vehicle_modal_content(self, screen):
+        """Custom rendering for vehicle purchase modal."""
+        font_medium = pygame.font.SysFont('arial', FontSizes.BODY)
+        font_spec = pygame.font.SysFont('arial', FontSizes.SMALL - 1)
+
+        # Display balance at top
+        if hasattr(self, 'extra_data') and 'balance' in self.extra_data:
+            balance = self.extra_data['balance']
+            balance_text = f"Your Balance: ${balance:,.0f}"
+            balance_color = Colors.PROFIT_POSITIVE if balance >= 0 else Colors.PROFIT_NEGATIVE
+            balance_surf = font_medium.render(balance_text, True, balance_color)
+            balance_rect = balance_surf.get_rect(center=(self.rect.centerx, self.y + 75))
+            screen.blit(balance_surf, balance_rect)
+
+        # Render vehicle specs below each button (except cancel)
+        for button in self.buttons[:-1]:  # Skip cancel button
+            if hasattr(button, 'vehicle_info'):
+                info = button.vehicle_info
+
+                # Render specs below button
+                spec_y = button.rect.y + button.rect.height + 5
+
+                # Affordability status
+                if info['can_afford']:
+                    status_text = f"✓ Capacity: {info['capacity']:.0f}m³  •  ${info['cost_per_km']:.2f}/km  •  Range: {info['range']:.0f}km"
+                    status_color = Colors.TEXT_SECONDARY
+                else:
+                    status_text = "✗ Insufficient funds"
+                    status_color = Colors.PROFIT_NEGATIVE
+
+                spec_surf = font_spec.render(status_text, True, status_color)
+                spec_rect = spec_surf.get_rect(center=(self.rect.centerx, spec_y))
+                screen.blit(spec_surf, spec_rect)
 
 
 class DeliveryFleetApp:
@@ -124,11 +164,16 @@ class DeliveryFleetApp:
         self.warning_message = ""
         self.warning_color = Colors.PROFIT_NEGATIVE
 
+        # Manual mode state
+        self.mode = "AUTO"  # "AUTO" or "MANUAL"
+        self.manual_mode_manager = None  # Will be created when needed
+
         # Modals
         self.vehicle_modal = Modal("Purchase Vehicle", 650, 650)  # Larger for detailed specs
         self.capacity_warning_modal = Modal("⚠️ Insufficient Capacity", 600, 400)
         self.marketing_modal = Modal("📈 Marketing & Package Rate", 650, 450)
-        self.day_summary_modal = Modal("📦 Day Summary", 700, 500)
+        self.day_summary_modal = Modal("📦 Day Summary", 700, 580)  # Increased height for button
+        self.comparison_modal = Modal("🎯 Manual vs Algorithm Comparison", 750, 600)
 
         # Create UI
         self._create_ui_components()
@@ -155,36 +200,51 @@ class DeliveryFleetApp:
     def _create_ui_components(self):
         """Create all UI components with FIXED layout."""
 
-        # FIXED LAYOUT - Everything fits within 800px height
+        # FIXED LAYOUT - Everything fits within 1000px height
         SIDEBAR_START = 100  # Below title bar
 
-        # Panels - Adjusted heights to fit
-        self.stats_panel = Panel(SIDEBAR_X + 10, SIDEBAR_START, SIDEBAR_WIDTH - 20, 170, "GAME STATUS")
-        self.agent_panel = Panel(SIDEBAR_X + 10, SIDEBAR_START + 180, SIDEBAR_WIDTH - 20, 240, "AGENTS")
-        self.controls_panel = Panel(SIDEBAR_X + 10, SIDEBAR_START + 430, SIDEBAR_WIDTH - 20, 260, "CONTROLS")
+        # Panels - Carefully calculated to prevent overlaps
+        self.stats_panel = Panel(SIDEBAR_X + 10, SIDEBAR_START, SIDEBAR_WIDTH - 20, 180, "GAME STATUS")
+        self.mode_panel = Panel(SIDEBAR_X + 10, SIDEBAR_START + 190, SIDEBAR_WIDTH - 20, 85, "MODE")
+        self.agent_panel = Panel(SIDEBAR_X + 10, SIDEBAR_START + 285, SIDEBAR_WIDTH - 20, 180, "AGENTS")
+        self.controls_panel = Panel(SIDEBAR_X + 10, SIDEBAR_START + 475, SIDEBAR_WIDTH - 20, 320, "CONTROLS")  # Increased height
 
-        # Warning message area
-        self.warning_rect = pygame.Rect(SIDEBAR_X + 10, SIDEBAR_START + 700, SIDEBAR_WIDTH - 20, 40)
+        # Warning message area - positioned below controls panel
+        self.warning_rect = pygame.Rect(SIDEBAR_X + 10, SIDEBAR_START + 805, SIDEBAR_WIDTH - 20, 80)
 
-        # Stats - Compact layout
+        # Stats - Organized in clear rows
         stat_x = SIDEBAR_X + 25
-        self.day_stat = StatDisplay(stat_x, SIDEBAR_START + 40, "Day:", "1")
-        self.balance_stat = StatDisplay(stat_x + 140, SIDEBAR_START + 40, "Balance:", "$100K")
-        self.fleet_stat = StatDisplay(stat_x, SIDEBAR_START + 100, "Fleet:", "2 veh")
-        self.packages_stat = StatDisplay(stat_x + 140, SIDEBAR_START + 100, "Pending:", "0")
-        self.capacity_stat = StatDisplay(stat_x + 280, SIDEBAR_START + 40, "Capacity:", "0/0")
+        stat_row1_y = SIDEBAR_START + 40
+        stat_row2_y = SIDEBAR_START + 95
+        stat_row3_y = SIDEBAR_START + 145
 
-        # Planned route metrics (visible when routes are planned)
-        self.planned_cost_stat = StatDisplay(stat_x, SIDEBAR_START + 135, "Cost:", "$0")
-        self.planned_revenue_stat = StatDisplay(stat_x + 140, SIDEBAR_START + 135, "Revenue:", "$0")
-        self.planned_profit_stat = StatDisplay(stat_x + 280, SIDEBAR_START + 135, "Profit:", "$0")
+        # Row 1: Day and Balance
+        self.day_stat = StatDisplay(stat_x, stat_row1_y, "Day:", "1")
+        self.balance_stat = StatDisplay(stat_x + 125, stat_row1_y, "Balance:", "$100K")
+
+        # Row 2: Fleet and Packages
+        self.fleet_stat = StatDisplay(stat_x, stat_row2_y, "Fleet:", "2 veh")
+        self.packages_stat = StatDisplay(stat_x + 125, stat_row2_y, "Pending:", "0")
+        self.capacity_stat = StatDisplay(stat_x + 250, stat_row2_y, "Capacity:", "0/0")
+
+        # Row 3: Planned route metrics (visible when routes are planned)
+        self.planned_cost_stat = StatDisplay(stat_x, stat_row3_y, "Cost:", "$0")
+        self.planned_revenue_stat = StatDisplay(stat_x + 125, stat_row3_y, "Revenue:", "$0")
+        self.planned_profit_stat = StatDisplay(stat_x + 250, stat_row3_y, "Profit:", "$0")
 
         # Store planned metrics
         self.planned_metrics = None
 
-        # Agent radio buttons - Compact
+        # Mode toggle buttons - positioned in MODE panel
+        mode_btn_x = SIDEBAR_X + 25
+        mode_btn_y = SIDEBAR_START + 230
+        mode_btn_width = (SIDEBAR_WIDTH - 60) // 2
+        self.mode_auto_btn = Button(mode_btn_x, mode_btn_y, mode_btn_width, 35, "AUTO", self.on_mode_auto)
+        self.mode_manual_btn = Button(mode_btn_x + mode_btn_width + 10, mode_btn_y, mode_btn_width, 35, "MANUAL", self.on_mode_manual)
+
+        # Agent radio buttons - positioned in AGENTS panel
         radio_x = SIDEBAR_X + 35
-        radio_y = SIDEBAR_START + 220
+        radio_y = SIDEBAR_START + 325
         self.agent_radios = [
             RadioButton(radio_x, radio_y, "Greedy", "agent", "greedy"),
             RadioButton(radio_x, radio_y + 35, "Greedy+2opt", "agent", "greedy_2opt"),
@@ -193,13 +253,13 @@ class DeliveryFleetApp:
         ]
         self.agent_radios[0].selected = True
 
-        # Control buttons - Optimized spacing to fit all buttons
+        # Control buttons - positioned in CONTROLS panel
         btn_x = SIDEBAR_X + 25
-        btn_y = SIDEBAR_START + 470
+        btn_y = SIDEBAR_START + 515
         btn_width = SIDEBAR_WIDTH - 50
         btn_small_width = (btn_width - 10) // 2
-        btn_height = 32  # Reduced from 35 to fit everything
-        btn_spacing = 36  # Tight spacing
+        btn_height = 35
+        btn_spacing = 38  # Comfortable spacing
 
         self.buttons = {
             'start_day': Button(btn_x, btn_y, btn_width, btn_height, "📦 Start Day", self.on_start_day),
@@ -209,8 +269,9 @@ class DeliveryFleetApp:
             'execute': Button(btn_x, btn_y + btn_spacing * 3, btn_small_width, btn_height, "▶️ Execute", self.on_execute_day),
             'next_day': Button(btn_x + btn_small_width + 10, btn_y + btn_spacing * 3, btn_small_width, btn_height, "⏭️ Next", self.on_next_day),
             'marketing': Button(btn_x, btn_y + btn_spacing * 4, btn_width, btn_height, "📈 Marketing", self.on_show_marketing),
-            'save': Button(btn_x, btn_y + btn_spacing * 5, btn_small_width, btn_height, "💾 Save", self.on_save),
-            'stats': Button(btn_x + btn_small_width + 10, btn_y + btn_spacing * 5, btn_small_width, btn_height, "📊 Stats", self.on_stats),
+            'compare': Button(btn_x, btn_y + btn_spacing * 5, btn_width, btn_height, "🎯 Compare", self.on_show_comparison),
+            'save': Button(btn_x, btn_y + btn_spacing * 6, btn_small_width, btn_height, "💾 Save", self.on_save),
+            'load': Button(btn_x + btn_small_width + 10, btn_y + btn_spacing * 6, btn_small_width, btn_height, "📂 Load", self.on_load),
         }
 
         # Set initial states
@@ -218,8 +279,43 @@ class DeliveryFleetApp:
         self.buttons['clear'].enabled = False
         self.buttons['execute'].enabled = False
         self.buttons['next_day'].enabled = False
+        self.buttons['compare'].enabled = False  # Only enabled in manual mode with routes
 
     # ==================== EVENT HANDLERS ====================
+
+    def on_mode_auto(self):
+        """Switch to AUTO mode."""
+        self.mode = "AUTO"
+        self.show_warning("AUTO mode: Use algorithms to plan routes", Colors.TEXT_ACCENT)
+        if self.manual_mode_manager:
+            self.manual_mode_manager.active = False
+        self.buttons['compare'].enabled = False
+
+    def on_mode_manual(self):
+        """Switch to MANUAL mode."""
+        self.mode = "MANUAL"
+        self.show_warning("MANUAL mode: Drag packages and build routes yourself!", Colors.TEXT_ACCENT)
+
+        # Initialize manual mode manager if needed
+        if not self.manual_mode_manager:
+            # Calculate available space for manual mode
+            manual_x = MAP_X + 10
+            manual_y = MAP_Y + MAP_HEIGHT + 100  # Below the legend
+            manual_width = MAP_WIDTH - 20
+
+            # Calculate height to fit within window, leaving margin
+            available_height = WINDOW_HEIGHT - manual_y - 10  # 10px bottom margin
+            manual_height = available_height  # Use all available space
+
+            self.manual_mode_manager = ManualModeManager(manual_x, manual_y, manual_width, manual_height)
+
+        # Setup with current packages and fleet
+        if self.engine.game_state and self.engine.game_state.packages_pending:
+            self.manual_mode_manager.setup(
+                self.engine.game_state.packages_pending,
+                self.engine.game_state.fleet
+            )
+            self.manual_mode_manager.active = True
 
     def on_start_day(self):
         """Start a new day."""
@@ -298,11 +394,16 @@ class DeliveryFleetApp:
             ("💡 Hover over packages on map for details!", Colors.TEXT_ACCENT),
             ("", Colors.TEXT_PRIMARY),  # Extra spacing before buttons
             ("", Colors.TEXT_PRIMARY),  # Extra spacing before buttons
+            ("", Colors.TEXT_PRIMARY),  # Extra spacing before buttons
+            ("", Colors.TEXT_PRIMARY),  # Extra spacing before buttons
+            ("", Colors.TEXT_PRIMARY),  # Extra spacing before buttons
+            ("", Colors.TEXT_PRIMARY),  # Extra spacing before buttons
+
         ])
 
-        # Create buttons - positioned lower to avoid overlap
-        modal_btn_x = self.day_summary_modal.x + 180
-        modal_btn_y = self.day_summary_modal.y + 440  # Increased from 420
+        # Create buttons - positioned at bottom with proper spacing
+        modal_btn_x = self.day_summary_modal.x + 120
+        modal_btn_y = self.day_summary_modal.y + 520  # Positioned for 580px height modal
 
         if total_volume > fleet_capacity:
             # Need more capacity
@@ -380,53 +481,58 @@ class DeliveryFleetApp:
 
     def on_buy_vehicle(self):
         """Show vehicle purchase modal."""
-        content = [
-            ("🚚 VEHICLE PURCHASE", Colors.TEXT_ACCENT),
-            ("", Colors.TEXT_PRIMARY),
-            (f"Your Balance: ${self.engine.game_state.balance:,.0f}", Colors.PROFIT_POSITIVE),
-            ("", Colors.TEXT_PRIMARY),
-        ]
-
-        # List vehicles with detailed specs
-        y_offset = 100
+        # Simplified header - no content lines, we'll draw everything custom
+        content = []
         buttons = []
 
+        # Calculate positions
+        modal_x = self.vehicle_modal.x
+        modal_y = self.vehicle_modal.y
+
+        # Button layout - stacked vertically with proper spacing
+        btn_width = 350
+        btn_height = 38
+        btn_x = modal_x + (self.vehicle_modal.width - btn_width) // 2  # Center buttons
+
+        # Start buttons below the header text we'll draw
+        btn_start_y = modal_y + 120
+        btn_spacing = 48  # Space between vehicle buttons
+
+        y_pos = btn_start_y
+
+        # Create a button for each vehicle type
         for vtype_name, vtype in self.engine.vehicle_types.items():
             can_afford = vtype.purchase_price <= self.engine.game_state.balance
-            name_color = Colors.TEXT_ACCENT if can_afford else Colors.TEXT_SECONDARY
-            spec_color = Colors.TEXT_PRIMARY if can_afford else Colors.TEXT_SECONDARY
 
-            # Vehicle name with affordability indicator
-            affordability = "✓ AFFORDABLE" if can_afford else "✗ INSUFFICIENT FUNDS"
-            afford_color = Colors.PROFIT_POSITIVE if can_afford else Colors.PROFIT_NEGATIVE
+            # Button text shows key info
+            btn_text = f"Buy {vtype.name} - ${vtype.purchase_price:,}"
 
-            content.append((f"━━━ {vtype.name.upper()} ━━━", name_color))
-            content.append((f"   Capacity: {vtype.capacity_m3:.0f} m³", spec_color))
-            content.append((f"   Purchase Price: ${vtype.purchase_price:,}", spec_color))
-            content.append((f"   Operating Cost: ${vtype.cost_per_km:.2f}/km", spec_color))
-            content.append((f"   Range: {vtype.max_range_km:.0f} km", spec_color))
-            content.append((f"   {affordability}", afford_color))
-            content.append(("", Colors.TEXT_PRIMARY))
-
-            # Create button
-            btn_x = self.vehicle_modal.x + 150
-            btn_y = self.vehicle_modal.y + y_offset
-            btn_width = 300
-
-            btn = Button(btn_x, btn_y, btn_width, 38,
-                        f"Purchase {vtype.name} - ${vtype.purchase_price:,}",
+            btn = Button(btn_x, y_pos, btn_width, btn_height,
+                        btn_text,
                         lambda vt=vtype_name: self.purchase_vehicle(vt))
             btn.enabled = can_afford
             buttons.append(btn)
 
-            y_offset += 150  # More spacing between vehicles
+            # Store vehicle info for rendering (we'll draw specs next to/below button)
+            btn.vehicle_info = {
+                'name': vtype.name,
+                'capacity': vtype.capacity_m3,
+                'cost_per_km': vtype.cost_per_km,
+                'range': vtype.max_range_km,
+                'can_afford': can_afford
+            }
 
-        # Cancel button at bottom
-        cancel_btn = Button(self.vehicle_modal.x + 200, self.vehicle_modal.y + self.vehicle_modal.height - 60,
+            y_pos += btn_spacing + btn_height
+
+        # Cancel button at bottom with spacing
+        cancel_btn_y = modal_y + self.vehicle_modal.height - 60
+        cancel_btn = Button(modal_x + (self.vehicle_modal.width - 200) // 2, cancel_btn_y,
                           200, 40, "Cancel", lambda: self.vehicle_modal.hide())
         buttons.append(cancel_btn)
 
-        self.vehicle_modal.show(content, buttons)
+        # Pass balance as extra data
+        extra_data = {'balance': self.engine.game_state.balance}
+        self.vehicle_modal.show(content, buttons, extra_data)
 
     def purchase_vehicle(self, vehicle_type_name: str):
         """Purchase a vehicle."""
@@ -449,7 +555,44 @@ class DeliveryFleetApp:
             self.show_warning("Not enough funds!", Colors.PROFIT_NEGATIVE)
 
     def on_plan_routes(self):
-        """Plan routes with selected agent."""
+        """Plan routes with selected agent or apply manual routes."""
+        if self.mode == "MANUAL":
+            # Apply manual routes
+            if not self.manual_mode_manager:
+                self.show_warning("Manual mode not initialized!", Colors.PROFIT_NEGATIVE)
+                return
+
+            manual_routes = self.manual_mode_manager.get_manual_routes()
+            if not manual_routes:
+                self.show_warning("No routes built! Assign packages and select stops.", Colors.PROFIT_NEGATIVE)
+                return
+
+            # Apply manual routes to game state
+            self.engine.game_state.set_routes(manual_routes)
+            self.planned_routes = manual_routes
+
+            # Calculate metrics
+            from src.utils.metrics import calculate_route_metrics
+            metrics = calculate_route_metrics(manual_routes)
+            self.planned_metrics = metrics
+
+            # Update display
+            cost = metrics['total_cost']
+            revenue = metrics['total_revenue']
+            profit = metrics['total_profit']
+
+            profit_color = Colors.PROFIT_POSITIVE if profit > 0 else Colors.PROFIT_NEGATIVE
+            self.planned_cost_stat.set_value(f"${cost:.0f}", Colors.PROFIT_NEGATIVE)
+            self.planned_revenue_stat.set_value(f"${revenue:.0f}", Colors.PROFIT_POSITIVE)
+            self.planned_profit_stat.set_value(f"${profit:.0f}", profit_color)
+
+            self.buttons['execute'].enabled = True
+            self.buttons['clear'].enabled = True
+            self.buttons['compare'].enabled = True
+            self.show_warning(f"Manual routes ready! Profit: ${profit:.2f}", Colors.PROFIT_POSITIVE)
+            return
+
+        # AUTO mode - use agent
         print(f"\n[UI] Planning with {self.selected_agent}...")
         metrics = self.engine.test_agent(self.selected_agent)
 
@@ -534,6 +677,37 @@ class DeliveryFleetApp:
         """Save game."""
         self.engine.save_game()
         self.show_warning("Game saved!", Colors.TEXT_ACCENT)
+    def on_load(self):
+        """Load saved game."""
+        try:
+            self.engine.load_game()
+            # Reset UI state
+            self.planned_routes = []
+            self.planned_metrics = None
+            self.package_status = {}
+
+            # Clear planned metrics display
+            self.planned_cost_stat.set_value("$0", Colors.TEXT_SECONDARY)
+            self.planned_revenue_stat.set_value("$0", Colors.TEXT_SECONDARY)
+            self.planned_profit_stat.set_value("$0", Colors.TEXT_SECONDARY)
+
+            # Reset button states
+            self.buttons['plan_routes'].enabled = False
+            self.buttons['clear'].enabled = False
+            self.buttons['execute'].enabled = False
+            self.buttons['next_day'].enabled = False
+
+            # Update stats
+            self.update_stats()
+            self.show_warning("Game loaded successfully!", Colors.PROFIT_POSITIVE)
+            print(f"✓ Loaded game: Day {self.engine.game_state.current_day}, Balance ${self.engine.game_state.balance:.2f}")
+        except FileNotFoundError:
+            self.show_warning("No saved game found!", Colors.PROFIT_NEGATIVE)
+            print("✗ No savegame.json file found")
+        except Exception as e:
+            self.show_warning(f"Error loading game!", Colors.PROFIT_NEGATIVE)
+            print(f"✗ Error loading game: {e}")
+
 
     def on_stats(self):
         """Show statistics."""
@@ -620,6 +794,110 @@ class DeliveryFleetApp:
         else:
             self.show_warning("Cannot upgrade marketing!", Colors.PROFIT_NEGATIVE)
 
+    def on_show_comparison(self):
+        """Show comparison between manual solution and algorithmic solutions."""
+        if self.mode != "MANUAL":
+            self.show_warning("Comparison only available in MANUAL mode!", Colors.TEXT_ACCENT)
+            return
+
+        if not self.manual_mode_manager:
+            self.show_warning("Manual mode not initialized!", Colors.PROFIT_NEGATIVE)
+            return
+
+        manual_routes = self.manual_mode_manager.get_manual_routes()
+        if not manual_routes:
+            self.show_warning("Build routes first to compare!", Colors.PROFIT_NEGATIVE)
+            return
+
+        # Calculate manual solution metrics
+        from src.utils.metrics import calculate_route_metrics
+        manual_metrics = calculate_route_metrics(manual_routes)
+
+        # Test all agents
+        agent_results = {}
+        for agent_name in ["greedy", "greedy_2opt", "backtracking", "pruning_backtracking"]:
+            if agent_name in self.engine.agents:
+                metrics = self.engine.test_agent(agent_name)
+                if metrics:
+                    agent_results[agent_name] = metrics
+
+        # Find best algorithmic solution
+        best_agent = None
+        best_profit = float('-inf')
+        for agent_name, metrics in agent_results.items():
+            if metrics['total_profit'] > best_profit:
+                best_profit = metrics['total_profit']
+                best_agent = agent_name
+
+        # Build comparison content
+        content = [
+            ("🎯 YOUR MANUAL SOLUTION", Colors.TEXT_ACCENT),
+            ("", Colors.TEXT_PRIMARY),
+            (f"Routes: {len(manual_routes)}", Colors.TEXT_PRIMARY),
+            (f"Distance: {manual_metrics['total_distance']:.1f}km", Colors.TEXT_SECONDARY),
+            (f"Cost: ${manual_metrics['total_cost']:.0f}", Colors.PROFIT_NEGATIVE),
+            (f"Revenue: ${manual_metrics['total_revenue']:.0f}", Colors.PROFIT_POSITIVE),
+            (f"Profit: ${manual_metrics['total_profit']:.0f}",
+             Colors.PROFIT_POSITIVE if manual_metrics['total_profit'] > 0 else Colors.PROFIT_NEGATIVE),
+            ("", Colors.TEXT_PRIMARY),
+            ("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", Colors.BORDER_LIGHT),
+            ("", Colors.TEXT_PRIMARY),
+        ]
+
+        if best_agent:
+            best_metrics = agent_results[best_agent]
+            profit_diff = best_metrics['total_profit'] - manual_metrics['total_profit']
+            profit_pct = (profit_diff / manual_metrics['total_profit'] * 100) if manual_metrics['total_profit'] != 0 else 0
+
+            content.extend([
+                (f"🤖 BEST ALGORITHM: {best_agent.upper()}", Colors.TEXT_ACCENT),
+                ("", Colors.TEXT_PRIMARY),
+                (f"Routes: {len(best_metrics['routes'])}", Colors.TEXT_PRIMARY),
+                (f"Distance: {best_metrics['total_distance']:.1f}km", Colors.TEXT_SECONDARY),
+                (f"Cost: ${best_metrics['total_cost']:.0f}", Colors.PROFIT_NEGATIVE),
+                (f"Revenue: ${best_metrics['total_revenue']:.0f}", Colors.PROFIT_POSITIVE),
+                (f"Profit: ${best_metrics['total_profit']:.0f}", Colors.PROFIT_POSITIVE),
+                ("", Colors.TEXT_PRIMARY),
+                ("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", Colors.BORDER_LIGHT),
+                ("", Colors.TEXT_PRIMARY),
+            ])
+
+            if profit_diff > 0:
+                content.extend([
+                    ("📊 ANALYSIS", Colors.TEXT_ACCENT),
+                    ("", Colors.TEXT_PRIMARY),
+                    (f"Algorithm is ${profit_diff:.0f} more profitable!", Colors.PROFIT_POSITIVE),
+                    (f"That's {abs(profit_pct):.1f}% better than your solution", Colors.TEXT_SECONDARY),
+                    ("", Colors.TEXT_PRIMARY),
+                    ("💡 TIP: Algorithms excel at:", Colors.TEXT_ACCENT),
+                    ("  • Minimizing total distance", Colors.TEXT_SECONDARY),
+                    ("  • Maximizing capacity usage", Colors.TEXT_SECONDARY),
+                    ("  • Finding optimal stop sequences", Colors.TEXT_SECONDARY),
+                ])
+            elif profit_diff < 0:
+                content.extend([
+                    ("🎉 EXCELLENT WORK!", Colors.PROFIT_POSITIVE),
+                    ("", Colors.TEXT_PRIMARY),
+                    (f"Your solution beats the algorithm by ${abs(profit_diff):.0f}!", Colors.PROFIT_POSITIVE),
+                    (f"That's {abs(profit_pct):.1f}% better!", Colors.PROFIT_POSITIVE),
+                    ("", Colors.TEXT_PRIMARY),
+                    ("You have a natural talent for optimization!", Colors.TEXT_ACCENT),
+                ])
+            else:
+                content.extend([
+                    ("🎯 PERFECT MATCH!", Colors.PROFIT_POSITIVE),
+                    ("", Colors.TEXT_PRIMARY),
+                    ("Your solution equals the algorithm!", Colors.TEXT_ACCENT),
+                    ("Great optimization skills!", Colors.TEXT_SECONDARY),
+                ])
+
+        # Create close button
+        modal_btn_x = self.comparison_modal.x + 275
+        modal_btn_y = self.comparison_modal.y + 520
+        close_btn = Button(modal_btn_x, modal_btn_y, 200, 40, "Close", lambda: self.comparison_modal.hide())
+
+        self.comparison_modal.show(content, [close_btn])
+
     def show_warning(self, message: str, color):
         """Show warning message."""
         self.warning_message = message
@@ -696,6 +974,8 @@ class DeliveryFleetApp:
                         self.marketing_modal.hide()
                     elif self.day_summary_modal.visible:
                         self.day_summary_modal.hide()
+                    elif self.comparison_modal.visible:
+                        self.comparison_modal.hide()
                     else:
                         self.running = False
 
@@ -716,9 +996,61 @@ class DeliveryFleetApp:
                 self.marketing_modal.handle_event(event)
                 continue
 
+            if self.comparison_modal.visible:
+                self.comparison_modal.handle_event(event)
+                continue
+
             # Regular button events
             for button in self.buttons.values():
                 button.handle_event(event)
+
+            # Mode toggle buttons
+            self.mode_auto_btn.handle_event(event)
+            self.mode_manual_btn.handle_event(event)
+
+            # Manual mode events
+            if self.mode == "MANUAL" and self.manual_mode_manager and self.manual_mode_manager.active:
+                result = self.manual_mode_manager.handle_event(event, self.engine.delivery_map)
+
+                # Handle manual mode actions
+                if result['action'] == 'package_assigned':
+                    pkg = result['data']['package']
+                    veh = result['data']['vehicle']
+                    self.show_warning(f"Assigned {pkg.id} to {veh.id}", Colors.PROFIT_POSITIVE)
+
+                elif result['action'] == 'capacity_exceeded':
+                    veh = result['data']
+                    self.show_warning(f"⚠️ {veh.id} capacity exceeded!", Colors.PROFIT_NEGATIVE)
+
+                elif result['action'] == 'vehicle_selected':
+                    if result['data']:
+                        self.show_warning(f"Selected {result['data'].vehicle.id} - Click packages on map", Colors.TEXT_ACCENT)
+
+                # Handle map clicks for package assignment
+                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    # Check if click is on the map
+                    map_rect = pygame.Rect(MAP_X, MAP_Y, MAP_WIDTH, MAP_HEIGHT)
+                    if map_rect.collidepoint(event.pos):
+                        # Convert screen coords to map coords
+                        mouse_x = event.pos[0] - MAP_X
+                        mouse_y = event.pos[1] - MAP_Y
+
+                        # Check if clicked on a package
+                        if self.engine.game_state.packages_pending:
+                            for pkg in self.engine.game_state.packages_pending:
+                                pkg_screen_x, pkg_screen_y = self.map_renderer.world_to_screen(pkg.destination)
+                                distance = ((mouse_x - pkg_screen_x) ** 2 + (mouse_y - pkg_screen_y) ** 2) ** 0.5
+                                if distance < 15:  # Click tolerance
+                                    # Assign package to selected vehicle
+                                    if self.manual_mode_manager.assign_package_from_map(pkg, self.engine.delivery_map):
+                                        veh_id = self.manual_mode_manager.selected_vehicle.vehicle.id if self.manual_mode_manager.selected_vehicle else "vehicle"
+                                        self.show_warning(f"Assigned {pkg.id[-4:]} to {veh_id[-3:]}", Colors.PROFIT_POSITIVE)
+                                    else:
+                                        if pkg.id in self.manual_mode_manager.assignments:
+                                            self.show_warning(f"{pkg.id[-4:]} already assigned", Colors.TEXT_SECONDARY)
+                                        else:
+                                            self.show_warning("Select a vehicle first or capacity exceeded", Colors.PROFIT_NEGATIVE)
+                                    break
 
             # Radio buttons
             if event.type == pygame.MOUSEBUTTONDOWN:
@@ -744,11 +1076,16 @@ class DeliveryFleetApp:
         self.render_map()
         self.render_sidebar()
 
+        # Render manual mode interface if active
+        if self.mode == "MANUAL" and self.manual_mode_manager:
+            self.manual_mode_manager.render(self.screen)
+
         # Modals on top
         self.day_summary_modal.render(self.screen)
         self.vehicle_modal.render(self.screen)
         self.capacity_warning_modal.render(self.screen)
         self.marketing_modal.render(self.screen)
+        self.comparison_modal.render(self.screen)
 
         self.tooltip.render(self.screen)
 
@@ -815,6 +1152,21 @@ class DeliveryFleetApp:
                 route_color = Colors.ROUTE_COLORS[i % len(Colors.ROUTE_COLORS)]
                 self.map_renderer.render_route(route, color=route_color, style="solid")
 
+        # Render manual mode routes (for ALL vehicles, not just current page)
+        if self.mode == "MANUAL" and self.manual_mode_manager:
+            route_data = self.manual_mode_manager.get_all_vehicle_routes_for_rendering(self.engine.delivery_map)
+            for i, (veh, packages, stops) in enumerate(route_data):
+                # Create a temporary route for rendering
+                from src.models.route import Route
+                temp_route = Route(
+                    vehicle=veh,
+                    packages=packages,
+                    stops=stops,
+                    delivery_map=self.engine.delivery_map
+                )
+                route_color = Colors.ROUTE_COLORS[i % len(Colors.ROUTE_COLORS)]
+                self.map_renderer.render_route(temp_route, color=route_color, style="solid")
+
         if self.engine.game_state:
             for vehicle in self.engine.game_state.fleet:
                 self.map_renderer.render_vehicle(vehicle)
@@ -830,7 +1182,7 @@ class DeliveryFleetApp:
         """Render horizontal legend below the map."""
         legend_y = MAP_Y + MAP_HEIGHT + 10
         legend_width = MAP_WIDTH
-        legend_height = 80
+        legend_height = 70  # Reduced from 80
         legend_x = MAP_X
 
         # Background
@@ -838,84 +1190,100 @@ class DeliveryFleetApp:
         pygame.draw.rect(self.screen, Colors.PANEL_BG, legend_rect, border_radius=5)
         pygame.draw.rect(self.screen, Colors.BORDER_LIGHT, legend_rect, 2, border_radius=5)
 
-        # Title - Use SysFont for better rendering
-        font_title = pygame.font.SysFont('arial', FontSizes.BODY, bold=True)
+        # Title - Use SysFont for better rendering with smaller size
+        font_title = pygame.font.SysFont('arial', 13, bold=True)
         title = font_title.render("MAP LEGEND", True, Colors.TEXT_ACCENT)
-        self.screen.blit(title, (legend_x + 10, legend_y + 8))
+        self.screen.blit(title, (legend_x + 10, legend_y + 6))
 
-        # Legend items in 2 rows, 3 columns - Use SysFont
-        font_small = pygame.font.SysFont('arial', FontSizes.SMALL)
+        # Legend items in 2 rows, 3 columns - Smaller font
+        font_small = pygame.font.SysFont('arial', 12)
 
         # Column 1
         x_col1 = legend_x + 15
-        y_row1 = legend_y + 35
-        y_row2 = legend_y + 55
+        y_row1 = legend_y + 28
+        y_row2 = legend_y + 48
 
         # Depot
-        pygame.draw.circle(self.screen, Colors.DEPOT, (x_col1, y_row1), 6)
+        pygame.draw.circle(self.screen, Colors.DEPOT, (x_col1, y_row1), 5)
         text = font_small.render("Depot", True, Colors.TEXT_PRIMARY)
-        self.screen.blit(text, (x_col1 + 12, y_row1 - 6))
+        self.screen.blit(text, (x_col1 + 10, y_row1 - 5))
 
         # Pending
-        pygame.draw.circle(self.screen, Colors.PACKAGE_PENDING, (x_col1, y_row2), 5)
+        pygame.draw.circle(self.screen, Colors.PACKAGE_PENDING, (x_col1, y_row2), 4)
         text = font_small.render("Pending", True, Colors.TEXT_PRIMARY)
-        self.screen.blit(text, (x_col1 + 12, y_row2 - 6))
+        self.screen.blit(text, (x_col1 + 10, y_row2 - 5))
 
         # Column 2
-        x_col2 = legend_x + 150
+        x_col2 = legend_x + 135
 
         # Delivered
-        pygame.draw.circle(self.screen, Colors.PACKAGE_DELIVERED, (x_col2, y_row1), 5)
+        pygame.draw.circle(self.screen, Colors.PACKAGE_DELIVERED, (x_col2, y_row1), 4)
         text = font_small.render("Delivered", True, Colors.TEXT_PRIMARY)
-        self.screen.blit(text, (x_col2 + 12, y_row1 - 6))
+        self.screen.blit(text, (x_col2 + 10, y_row1 - 5))
 
         # High priority
-        pygame.draw.circle(self.screen, Colors.PACKAGE_PRIORITY_HIGH, (x_col2, y_row2), 5)
-        text = font_small.render("Priority 3+", True, Colors.TEXT_PRIMARY)
-        self.screen.blit(text, (x_col2 + 12, y_row2 - 6))
+        pygame.draw.circle(self.screen, Colors.PACKAGE_PRIORITY_HIGH, (x_col2, y_row2), 4)
+        text = font_small.render("Priority", True, Colors.TEXT_PRIMARY)
+        self.screen.blit(text, (x_col2 + 10, y_row2 - 5))
 
         # Column 3
-        x_col3 = legend_x + 300
+        x_col3 = legend_x + 260
 
         # Route
         pygame.draw.line(self.screen, Colors.ROUTE_COLORS[0],
-                        (x_col3, y_row1), (x_col3 + 20, y_row1), 3)
+                        (x_col3, y_row1), (x_col3 + 18, y_row1), 2)
         # Arrow
         pygame.draw.polygon(self.screen, Colors.ROUTE_COLORS[0], [
-            (x_col3 + 20, y_row1),
-            (x_col3 + 16, y_row1 - 3),
-            (x_col3 + 16, y_row1 + 3)
+            (x_col3 + 18, y_row1),
+            (x_col3 + 14, y_row1 - 3),
+            (x_col3 + 14, y_row1 + 3)
         ])
         text = font_small.render("Route", True, Colors.TEXT_PRIMARY)
-        self.screen.blit(text, (x_col3 + 28, y_row1 - 6))
+        self.screen.blit(text, (x_col3 + 24, y_row1 - 5))
 
         # Vehicle
-        veh_rect = pygame.Rect(x_col3 + 2, y_row2 - 4, 12, 8)
+        veh_rect = pygame.Rect(x_col3 + 2, y_row2 - 3, 10, 7)
         pygame.draw.rect(self.screen, Colors.VEHICLE_ACTIVE, veh_rect, border_radius=1)
         text = font_small.render("Vehicle", True, Colors.TEXT_PRIMARY)
-        self.screen.blit(text, (x_col3 + 28, y_row2 - 6))
+        self.screen.blit(text, (x_col3 + 24, y_row2 - 5))
 
-        # Column 4 - Hint
-        x_col4 = legend_x + 480
-        hint_font = pygame.font.Font(None, FontSizes.SMALL)
-        hint1 = hint_font.render("💡 Hover over packages", True, Colors.TEXT_ACCENT)
-        hint2 = hint_font.render("   and vehicles for info!", True, Colors.TEXT_ACCENT)
-        self.screen.blit(hint1, (x_col4, y_row1 - 6))
-        self.screen.blit(hint2, (x_col4, y_row2 - 6))
+        # Column 4 - Hint (more compact)
+        x_col4 = legend_x + 420
+        hint_font = pygame.font.SysFont('arial', 11)
+        hint1 = hint_font.render("💡 Hover packages/vehicles", True, Colors.TEXT_ACCENT)
+        hint2 = hint_font.render("   for details", True, Colors.TEXT_ACCENT)
+        self.screen.blit(hint1, (x_col4, y_row1 - 5))
+        self.screen.blit(hint2, (x_col4, y_row2 - 5))
 
     def render_sidebar(self):
         """Render sidebar."""
         # Panels
         self.stats_panel.render(self.screen)
+        self.mode_panel.render(self.screen)
         self.agent_panel.render(self.screen)
         self.controls_panel.render(self.screen)
 
-        # Stats
+        # Stats - Row 1
         self.day_stat.render(self.screen)
         self.balance_stat.render(self.screen)
+
+        # Divider line after row 1
+        divider_y = self.stats_panel.rect.y + 85
+        pygame.draw.line(self.screen, Colors.BORDER_LIGHT,
+                        (SIDEBAR_X + 25, divider_y),
+                        (SIDEBAR_X + SIDEBAR_WIDTH - 25, divider_y), 1)
+
+        # Stats - Row 2
         self.fleet_stat.render(self.screen)
         self.packages_stat.render(self.screen)
         self.capacity_stat.render(self.screen)
+
+        # Divider line after row 2 (only if planned metrics exist)
+        if self.planned_metrics:
+            divider_y2 = self.stats_panel.rect.y + 140
+            pygame.draw.line(self.screen, Colors.BORDER_LIGHT,
+                            (SIDEBAR_X + 25, divider_y2),
+                            (SIDEBAR_X + SIDEBAR_WIDTH - 25, divider_y2), 1)
 
         # Planned route metrics (only show when routes are planned)
         if self.planned_metrics:
@@ -923,9 +1291,32 @@ class DeliveryFleetApp:
             self.planned_revenue_stat.render(self.screen)
             self.planned_profit_stat.render(self.screen)
 
-        # Radios
-        for radio in self.agent_radios:
-            radio.render(self.screen)
+        # Mode toggle buttons
+        self.mode_auto_btn.render(self.screen)
+        self.mode_manual_btn.render(self.screen)
+
+        # Highlight selected mode
+        if self.mode == "AUTO":
+            highlight_rect = pygame.Rect(
+                self.mode_auto_btn.rect.x - 2,
+                self.mode_auto_btn.rect.y - 2,
+                self.mode_auto_btn.rect.width + 4,
+                self.mode_auto_btn.rect.height + 4
+            )
+            pygame.draw.rect(self.screen, Colors.TEXT_ACCENT, highlight_rect, 3, border_radius=7)
+        else:
+            highlight_rect = pygame.Rect(
+                self.mode_manual_btn.rect.x - 2,
+                self.mode_manual_btn.rect.y - 2,
+                self.mode_manual_btn.rect.width + 4,
+                self.mode_manual_btn.rect.height + 4
+            )
+            pygame.draw.rect(self.screen, Colors.TEXT_ACCENT, highlight_rect, 3, border_radius=7)
+
+        # Radios (only show in AUTO mode)
+        if self.mode == "AUTO":
+            for radio in self.agent_radios:
+                radio.render(self.screen)
 
         # Buttons
         for button in self.buttons.values():
