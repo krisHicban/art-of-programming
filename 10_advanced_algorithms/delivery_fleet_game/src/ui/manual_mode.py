@@ -786,9 +786,12 @@ class ManualModeManager:
 
         return routes_data
 
-    def get_manual_routes(self) -> List[Route]:
+    def get_manual_routes(self, delivery_map: DeliveryMap) -> List[Route]:
         """
         Build Route objects from manual assignments for ALL vehicles.
+
+        Args:
+            delivery_map: Map for distance and cost calculations
 
         Returns:
             List of manually created routes
@@ -814,7 +817,8 @@ class ManualModeManager:
                 route = Route(
                     vehicle=veh,
                     packages=assigned_pkgs.copy(),
-                    stops=route_stops.copy()
+                    stops=route_stops.copy(),
+                    delivery_map=delivery_map
                 )
                 routes.append(route)
 
@@ -890,11 +894,11 @@ class ManualModeManager:
         # Section title with page info
         font_header = pygame.font.SysFont('arial', 10, bold=True)
         total_pages = max(1, (len(self.all_packages) + self.packages_per_page - 1) // self.packages_per_page)
-        title = font_header.render(
-            f"PACKAGES (Page {self.package_page + 1}/{total_pages})",
-            True, Colors.TEXT_ACCENT
-        )
-        surface.blit(title, (self.packages_section_rect.x + 5, self.packages_section_rect.y - 15))
+        # title = font_header.render(
+        #     f"PACKAGES (Page {self.package_page + 1}/{total_pages})",
+        #     True, Colors.TEXT_ACCENT
+        # )
+        # surface.blit(title, (self.packages_section_rect.x + 5, self.packages_section_rect.y - 15))
 
         # Render package cards
         for pkg_card in self.package_cards:

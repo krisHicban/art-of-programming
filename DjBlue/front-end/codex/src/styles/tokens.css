@@ -1,0 +1,56 @@
+:root {
+  /* Color palette */
+  --color-background: #050816;
+  --color-surface: rgba(12, 19, 46, 0.72);
+  --color-surface-strong: rgba(18, 27, 63, 0.9);
+  --color-overlay: rgba(17, 24, 57, 0.64);
+  --color-border: rgba(111, 138, 255, 0.24);
+  --color-primary: #4f71ff;
+  --color-primary-soft: rgba(79, 113, 255, 0.35);
+  --color-secondary: #7c5cff;
+  --color-tertiary: #45d4ff;
+  --color-highlight: #98f5ff;
+  --color-text: #f9fbff;
+  --color-text-muted: rgba(220, 226, 255, 0.75);
+  --color-text-soft: rgba(220, 226, 255, 0.55);
+  --color-glow: rgba(91, 132, 255, 0.6);
+
+  /* Typography */
+  --font-sans: "Inter", "SF Pro Display", "Segoe UI", sans-serif;
+  --font-display: "Sora", "Inter", "SF Pro Display", "Segoe UI", sans-serif;
+
+  /* Type scale */
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-md: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.5rem;
+  --font-size-2xl: 1.875rem;
+  --font-size-3xl: 2.5rem;
+  --font-size-4xl: clamp(2.75rem, 3.5vw, 3.875rem);
+  --font-size-hero: clamp(3.5rem, 5vw, 5rem);
+
+  /* Layout */
+  --max-width: 1200px;
+  --gutter: 1.5rem;
+  --radius-sm: 12px;
+  --radius-md: 20px;
+  --radius-lg: 28px;
+
+  /* Shadows & glows */
+  --shadow-soft: 0 16px 60px rgba(18, 27, 63, 0.55);
+  --shadow-glow: 0 0 60px rgba(79, 113, 255, 0.4);
+
+  /* Motion */
+  --transition-snappy: cubic-bezier(0.22, 1, 0.36, 1);
+  --transition-fluid: cubic-bezier(0.37, 0, 0.63, 1);
+  --duration-short: 160ms;
+  --duration-medium: 320ms;
+  --duration-long: 520ms;
+}
+
+@media (max-width: 768px) {
+  :root {
+    --gutter: 1rem;
+  }
+}

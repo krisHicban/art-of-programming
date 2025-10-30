@@ -562,7 +562,7 @@ class DeliveryFleetApp:
                 self.show_warning("Manual mode not initialized!", Colors.PROFIT_NEGATIVE)
                 return
 
-            manual_routes = self.manual_mode_manager.get_manual_routes()
+            manual_routes = self.manual_mode_manager.get_manual_routes(self.engine.delivery_map)
             if not manual_routes:
                 self.show_warning("No routes built! Assign packages and select stops.", Colors.PROFIT_NEGATIVE)
                 return
@@ -804,7 +804,7 @@ class DeliveryFleetApp:
             self.show_warning("Manual mode not initialized!", Colors.PROFIT_NEGATIVE)
             return
 
-        manual_routes = self.manual_mode_manager.get_manual_routes()
+        manual_routes = self.manual_mode_manager.get_manual_routes(self.engine.delivery_map)
         if not manual_routes:
             self.show_warning("Build routes first to compare!", Colors.PROFIT_NEGATIVE)
             return

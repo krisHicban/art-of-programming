@@ -1,0 +1,15 @@
+.layout {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  z-index: 1;
+}
+
+.layout__main {
+  flex: 1;
+  position: relative;
+  width: min(100%, var(--max-width));
+  margin: 0 auto;
+  padding: 0 var(--gutter);
+}

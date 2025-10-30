@@ -1,0 +1,112 @@
+.philosophy {
+  display: flex;
+  flex-direction: column;
+  gap: 4.5rem;
+  padding: 4rem 0 6rem;
+}
+
+.philosophy__hero {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  max-width: 720px;
+}
+
+.philosophy__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.5rem;
+}
+
+.philosophy__card {
+  padding: 2rem;
+  border-radius: var(--radius-lg);
+  background: rgba(12, 19, 46, 0.7);
+  border: 1px solid rgba(111, 138, 255, 0.14);
+  box-shadow: var(--shadow-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.philosophy__card h2 {
+  margin: 0;
+  font-size: 1.45rem;
+}
+
+.philosophy__card p {
+  margin: 0;
+  color: var(--color-text-muted);
+  line-height: 1.75;
+}
+
+.philosophy__design {
+  display: flex;
+  flex-direction: column;
+  gap: 2.75rem;
+}
+
+.design-tenets {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.5rem;
+}
+
+.design-tenet {
+  background: rgba(8, 14, 35, 0.8);
+  border-radius: var(--radius-md);
+  padding: 1.85rem;
+  border: 1px solid rgba(111, 138, 255, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.design-tenet h3 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.design-tenet p {
+  margin: 0;
+  color: var(--color-text-muted);
+  line-height: 1.65;
+}
+
+.design-board {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1.5rem;
+}
+
+.design-board__swatch {
+  width: 120px;
+  height: 120px;
+  border-radius: var(--radius-md);
+  filter: blur(0.3px);
+  box-shadow: var(--shadow-glow);
+}
+
+.design-board__swatch--primary {
+  background: linear-gradient(135deg, rgba(79, 113, 255, 0.85), rgba(69, 212, 255, 0.6));
+}
+
+.design-board__swatch--secondary {
+  background: linear-gradient(135deg, rgba(124, 92, 255, 0.85), rgba(189, 86, 255, 0.6));
+}
+
+.design-board__swatch--tertiary {
+  background: linear-gradient(135deg, rgba(69, 212, 255, 0.85), rgba(152, 245, 255, 0.7));
+}
+
+@media (max-width: 600px) {
+  .design-board {
+    justify-content: center;
+  }
+
+  .design-board__swatch {
+    width: 90px;
+    height: 90px;
+  }
+}

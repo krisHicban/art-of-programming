@@ -1,0 +1,60 @@
+.ambient-backdrop {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.ambient-backdrop__wave {
+  position: absolute;
+  filter: blur(60px);
+  opacity: 0.55;
+  mix-blend-mode: screen;
+  transform: translate(-50%, -50%);
+  animation: float var(--duration-long) var(--transition-fluid) infinite alternate;
+}
+
+.ambient-backdrop__wave--primary {
+  width: 480px;
+  height: 480px;
+  top: 12%;
+  left: 18%;
+  background: radial-gradient(circle at center, rgba(79, 113, 255, 0.55), transparent 65%);
+  animation-delay: 0s;
+}
+
+.ambient-backdrop__wave--secondary {
+  width: 560px;
+  height: 560px;
+  top: 70%;
+  left: 75%;
+  background: radial-gradient(circle at center, rgba(124, 92, 255, 0.5), transparent 70%);
+  animation-delay: 140ms;
+}
+
+.ambient-backdrop__wave--tertiary {
+  width: 420px;
+  height: 420px;
+  top: 45%;
+  left: 45%;
+  background: radial-gradient(circle at center, rgba(69, 212, 255, 0.4), transparent 60%);
+  animation-delay: 280ms;
+}
+
+@keyframes float {
+  from {
+    transform: translate(-45%, -55%) scale(0.95);
+  }
+  to {
+    transform: translate(-55%, -45%) scale(1.05);
+  }
+}
+
+@media (max-width: 768px) {
+  .ambient-backdrop__wave {
+    width: 280px;
+    height: 280px;
+    filter: blur(40px);
+  }
+}
