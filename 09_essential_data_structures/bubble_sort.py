@@ -18,4 +18,4 @@ print("Nesortate:", [o["timp"] for o in orders])
 
 sorted_orders = bubble_sort(orders, "timp")
 print("Sortate:", [o["timp"] for o in sorted_orders])
-# Output: Sortate: [12, 15, 25, 30]
+# Output: Sortate: [12, 15, 25, 30]..
