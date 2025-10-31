@@ -202,10 +202,13 @@ class GameState:
         Move to the next day.
 
         Clears current routes and prepares for new day.
+        IMPORTANT: Any undelivered packages are cleared (expired/cancelled).
         """
         self.current_day += 1
         self.current_routes = []
         self.packages_in_transit = []
+        # Clear pending packages - they expire if not delivered
+        self.packages_pending = []
 
     def get_available_fleet(self) -> List[Vehicle]:
         """
