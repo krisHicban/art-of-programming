@@ -106,8 +106,8 @@ class GameEngine:
         """
         Load or generate packages for a specific day.
 
-        Uses dynamic generation based on marketing level.
-        Falls back to JSON files for days 1-5 if available.
+        Uses intelligent generation based on day progression and marketing level.
+        Static JSON files for days 1-5 are deprecated in favor of reproducible generation.
 
         Args:
             day: Day number (uses current day if None)
@@ -118,21 +118,17 @@ class GameEngine:
         if day is None:
             day = self.game_state.current_day if self.game_state else 1
 
-        # For days 1-5, try loading from JSON first (for consistency)
-        if day <= 5:
-            filename = f"packages_day{day}.json"
-            try:
-                packages = self.data_loader.load_packages(filename)
-                print(f"✓ Loaded {len(packages)} packages for day {day} from file")
-                return packages
-            except FileNotFoundError:
-                pass  # Fall through to dynamic generation
-
-        # Dynamic generation based on marketing level
+        # Use intelligent generation for all days
         target_volume = self.game_state.get_daily_package_volume()
-        print(f"📦 Generating packages for day {day} (Marketing Lvl {self.game_state.marketing_level}: {target_volume:.1f}m³)")
+        marketing_level = self.game_state.marketing_level
 
-        packages = self.package_generator.generate_packages(target_volume, day)
+        print(f"📦 Generating packages for day {day} (Marketing Lvl {marketing_level}: {target_volume:.1f}m³)")
+
+        packages = self.package_generator.generate_packages(
+            target_volume=target_volume,
+            day=day,
+            marketing_level=marketing_level
+        )
         return packages
 
     def start_day(self) -> None:
