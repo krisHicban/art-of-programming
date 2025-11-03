@@ -17,7 +17,7 @@ from typing import Optional
 sys.path.insert(0, str(Path(__file__).parent))
 
 from src.core import GameEngine
-from src.agents import GreedyAgent, BacktrackingAgent, PruningBacktrackingAgent
+from src.agents import GreedyAgent, BacktrackingAgent, PruningBacktrackingAgent, StudentAgent
 from src.ui.constants import *
 from src.ui.map_renderer import MapRenderer
 from src.ui.components import Button, Panel, StatDisplay, RadioButton, Tooltip
@@ -196,6 +196,8 @@ class DeliveryFleetApp:
         self.engine.register_agent("backtracking", BacktrackingAgent(self.engine.delivery_map, max_packages=12))
         self.engine.register_agent("pruning_backtracking",
                                    PruningBacktrackingAgent(self.engine.delivery_map, max_packages=15))
+        self.engine.register_agent("student", StudentAgent(self.engine.delivery_map))
+        self.engine.register_agent("student_2opt", StudentAgent(self.engine.delivery_map, use_2opt=True))
 
     def _create_ui_components(self):
         """Create all UI components with FIXED layout."""
@@ -206,8 +208,8 @@ class DeliveryFleetApp:
         # Panels - Carefully calculated to prevent overlaps
         self.stats_panel = Panel(SIDEBAR_X + 10, SIDEBAR_START, SIDEBAR_WIDTH - 20, 180, "GAME STATUS")
         self.mode_panel = Panel(SIDEBAR_X + 10, SIDEBAR_START + 190, SIDEBAR_WIDTH - 20, 85, "MODE")
-        self.agent_panel = Panel(SIDEBAR_X + 10, SIDEBAR_START + 285, SIDEBAR_WIDTH - 20, 180, "AGENTS")
-        self.controls_panel = Panel(SIDEBAR_X + 10, SIDEBAR_START + 475, SIDEBAR_WIDTH - 20, 320, "CONTROLS")  # Increased height
+        self.agent_panel = Panel(SIDEBAR_X + 10, SIDEBAR_START + 285, SIDEBAR_WIDTH - 20, 250, "AGENTS")  # Increased for student agents
+        self.controls_panel = Panel(SIDEBAR_X + 10, SIDEBAR_START + 545, SIDEBAR_WIDTH - 20, 320, "CONTROLS")  # Adjusted position
 
         # Warning message area - positioned below controls panel
         self.warning_rect = pygame.Rect(SIDEBAR_X + 10, SIDEBAR_START + 805, SIDEBAR_WIDTH - 20, 80)
@@ -250,12 +252,14 @@ class DeliveryFleetApp:
             RadioButton(radio_x, radio_y + 35, "Greedy+2opt", "agent", "greedy_2opt"),
             RadioButton(radio_x, radio_y + 70, "Backtrack", "agent", "backtracking"),
             RadioButton(radio_x, radio_y + 105, "Pruning BT", "agent", "pruning_backtracking"),
+            RadioButton(radio_x, radio_y + 140, "Student", "agent", "student"),
+            RadioButton(radio_x, radio_y + 175, "Student+2opt", "agent", "student_2opt"),
         ]
         self.agent_radios[0].selected = True
 
         # Control buttons - positioned in CONTROLS panel
         btn_x = SIDEBAR_X + 25
-        btn_y = SIDEBAR_START + 515
+        btn_y = SIDEBAR_START + 585  # Adjusted for new panel position
         btn_width = SIDEBAR_WIDTH - 50
         btn_small_width = (btn_width - 10) // 2
         btn_height = 35
