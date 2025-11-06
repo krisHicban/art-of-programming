@@ -32,7 +32,7 @@ print()
 # PASUL 2: WEIGHTS (Modelul tău mental/emotional unic)
 # ============================================
 # Fiecare persoană reactionează diferit la aceiași stimuli!
-# Weights = "pattern-urile mentale și emocionale" personale
+# Weights = "pattern-urile mentale și emotionale" personale
 #
 # Avem 3 neuroni în layer-ul nostru, fiecare învață
 # o combinație diferită de factori:
