@@ -1,6 +1,91 @@
-# Tema 10: Introducere în Rețele Neuronale cu NumPy
+# Tema 15: Introducere în Rețele Neuronale cu NumPy
 
 **Temă comună pentru înțelegerea conceptelor de bază ale rețelelor neuronale**
+
+---
+
+## 📚 Ghid de Abordare - Research First, Code Second
+
+### Filosofia acestei teme: **Don't just Code - but Evolve your Knowledge**
+
+Această temă urmărește **două obiective paralele**:
+1. **Stăpânirea NumPy** - înțelegerea operațiilor vectorizate, broadcasting, și manipularea eficientă a matricelor
+2. **Fundamentele Rețelelor Neuronale** - înțelegerea conceptuală a cum "învață" o mașină
+
+### 🔍 Metodologia de lucru recomandată
+
+Pentru **FIECARE** exercițiu, urmați această abordare în 4 pași:
+
+#### Pasul 1: Research (15-30 minute per exercițiu)
+Înainte de a scrie orice linie de cod, cercetați:
+- **Ce este conceptul?** (ex: Ce este un neuron? De ce ReLU?)
+- **De ce există?** (Ce problemă rezolvă? Care e intuiția?)
+- **Cum funcționează matematic?** (Formulele, dar și intuiția din spate)
+- **Exemple vizuale** (Căutați grafice, animații, diagrame)
+
+**Resurse de start pentru research:**
+- 3Blue1Brown - Neural Network series (pentru intuiție vizuală)
+- Papers with Code (pentru implementări practice)
+- NumPy documentation (pentru operații specifice)
+
+#### Pasul 2: Implementare (20-30 minute)
+- Acum doar începeți să scrieți codul
+- Comentați FIECARE linie cu ce face ȘI de ce
+- Verificați dimensiunile matricelor la fiecare pas
+
+#### Pasul 3: Reflecție și Documentare (10-15 minute)
+- Scrieți un paragraf despre ce ați învățat
+- Notați 2-3 întrebări noi care v-au apărut
+- Documentați orice "aha!" moment
+
+### 🎯 Exemple de întrebări pentru research
+
+**Pentru Exercițiul 1 (Neuron cu ReLU):**
+- De ce ReLU și nu o funcție liniară? (hint: non-linearitate)
+- Ce se întâmplă cu "dying ReLU problem"?
+- Cum arată ReLU vs Sigmoid vs Tanh vizual?
+- Ce reprezintă weights și bias în lumea reală?
+
+**Pentru Exercițiul 2 (Sigmoid):**
+- De ce sigmoid mapează în (0,1)? Pentru ce e util asta?
+- Care e derivata lui sigmoid și de ce e importantă?
+- Ce e "vanishing gradient problem"?
+- Când folosim sigmoid vs softmax?
+
+**Pentru Exercițiul 3 (Rețea cu 2 straturi):**
+- Ce înseamnă "fully connected"? 
+- De ce avem nevoie de straturi multiple?
+- Ce e forward propagation vs backward propagation?
+- Cum aleg numărul de neuroni în stratul ascuns?
+
+### 💡 Anti-patterns de evitat
+
+❌ **Nu faceți:** Copy-paste din ChatGPT fără înțelegere
+✅ **Faceți:** Folosiți AI pentru clarificări, apoi implementați singuri
+
+❌ **Nu faceți:** Săriți direct la cod
+✅ **Faceți:** Desenați pe hârtie ce vreți să faceți întâi
+
+❌ **Nu faceți:** Implementați tot deodată
+✅ **Faceți:** Baby steps - testați fiecare funcție izolat
+
+### 📊 Ce înseamnă "înțelegere profundă"
+
+Știți că ați înțeles cu adevărat când puteți:
+1. Explica conceptul unui coleg în cuvinte simple
+2. Desena pe tablă cum circulă datele prin neuron/rețea
+3. Prezice ce se întâmplă dacă schimbați un parametru
+4. Identifica când și de ce ar eșua implementarea
+
+### 🔗 Conexiunea NumPy - Neural Networks
+
+În timp ce lucrați, observați:
+- **Dot product** (`np.dot`) = suma ponderată în neuroni
+- **Broadcasting** = aplicare eficientă a bias-ului
+- **Vectorizare** = procesare batch (mai multe exemple simultan)
+- **Reshape** = pregătirea datelor pentru layere diferite
+
+---
 
 ## I. Implementează un neuron simplu cu activare ReLU
 
