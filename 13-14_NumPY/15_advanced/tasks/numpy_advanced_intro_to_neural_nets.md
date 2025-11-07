@@ -137,7 +137,7 @@ def sigmoid(x):
 date_aleatorii = np.random.uniform(-10, 10, 100)
 
 # Aplică sigmoid pe toate valorile
-rezultate = # aplică sigmoid aici
+rezultate = date_aleatorii # aplică sigmoid aici
 
 # Vizualizare (opțional dar recomandat)
 plt.figure(figsize=(10, 5))
