@@ -11,8 +11,14 @@ gs = fig.add_gridspec(3, 3, hspace=0.3, wspace=0.3)
 
 # Main chart: Portfolio performance
 ax1 = fig.add_subplot(gs[0, :])
+
+
+# Date Folosite
 portfolio_dates = pd.date_range('2024-01-01', periods=50, freq='W')
 portfolio_value = 10000 + np.cumsum(np.random.randn(50) * 100)
+
+
+
 ax1.plot(portfolio_dates, portfolio_value, linewidth=3, color='#2E8B57')
 ax1.set_title('Portfolio Performance', fontsize=14, fontweight='bold')
 ax1.grid(True, alpha=0.3)
