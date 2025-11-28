@@ -51,3 +51,28 @@ print("💡 INSIGHTS:")
 print(f"Entertainment-Satisfaction correlation: {df['Entertainment'].corr(df['Satisfaction']):.2f}")
 print(f"Gym-Satisfaction correlation: {df['Gym'].corr(df['Satisfaction']):.2f}")
 print(f"Food Delivery-Satisfaction correlation: {df['Food_Delivery'].corr(df['Satisfaction']):.2f}")
+
+
+
+# Key relationships:
+# 💡 Strong Positive Correlations
+
+# Entertainment ↔ Satisfaction: 0.96
+# People who spend more on entertainment have much higher satisfaction.
+
+# Gym ↔ Satisfaction: 0.72
+# Fitness spending is also associated with higher life satisfaction.
+
+# Gym ↔ Entertainment: 0.61
+# People who spend more on entertainment also tend to spend more on the gym.
+
+# 💡 Strong Negative Correlations
+
+# Food_Delivery ↔ Entertainment: −0.85
+# Higher entertainment spending tends to occur with lower food-delivery spending.
+
+# Food_Delivery ↔ Satisfaction: −0.87
+# More spending on food delivery is associated with lower life satisfaction.
+
+# Food_Delivery ↔ Gym: −0.32
+# Mild negative relationship—people ordering food delivery slightly less likely to spend on gym.

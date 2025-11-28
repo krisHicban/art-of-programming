@@ -24,6 +24,7 @@ axes[0,1].set_title('Sleep Quality: Outliers & Quartiles', fontweight='bold')
 sns.violinplot(y=sleep_hours, ax=axes[1,0], color='lightgreen')
 axes[1,0].set_title('Sleep Distribution Shape', fontweight='bold')
 
+# Script here - no dataframes yet - just 2 NumpY arrays
 # 4. Distribution comparison
 data = pd.DataFrame({'Sleep': sleep_hours, 'Energy': energy_levels})
 sns.scatterplot(data=data, x='Sleep', y='Energy', ax=axes[1,1], alpha=0.6)
@@ -36,3 +37,4 @@ plt.show()
 print(f"Your average sleep: {sleep_hours.mean():.1f} hours")
 print(f"Sleep consistency: {sleep_hours.std():.1f} hour standard deviation")
 print(f"Energy correlation: {np.corrcoef(sleep_hours, energy_levels)[0,1]:.2f}")
+

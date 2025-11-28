@@ -176,6 +176,8 @@ life_df = pd.DataFrame({
 print(f"✅ Generated {n_days} days of data tracking {len(life_df.columns)-2} metrics")
 print(f"📅 {dates[0].strftime('%b %d')} to {dates[-1].strftime('%b %d, %Y')}\n")
 
+# ----------------- Data Generation 
+
 # ============================================
 # 🎨 CREATE MULTI-PANEL STATISTICAL NARRATIVE
 # ============================================
