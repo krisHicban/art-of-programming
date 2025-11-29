@@ -105,11 +105,6 @@ plt.show()
 # Încarcă datasetul
 df_iris = sns.load_dataset("iris")
 
-# Creează pairplot
-sns.pairplot(df_iris)
-plt.show()
-
-# TODO: Adaugă parametrul hue="species" pentru a colora pe specii
 ```
 
 **❓ Întrebare de reflecție:**  
@@ -143,13 +138,6 @@ df_penguins = sns.load_dataset("penguins")
 
 # Calculează corelațiile
 correlation_matrix = df_penguins.corr(numeric_only=True)
-
-# Creează heatmap
-sns.heatmap(correlation_matrix)
-plt.title("Corelații între caracteristicile pinguinilor")
-plt.show()
-
-# TODO: Adaugă annot=True și cmap="coolwarm"
 ```
 
 ---
@@ -206,13 +194,8 @@ df_employees['exp_category'] = pd.cut(
 )
 
 # Creează violinplot
-sns.violinplot(data=df_employees, x="exp_category", y="salary")
-plt.title("Distribuția salariilor pe categorii de experiență")
-plt.xlabel("Categoria de experiență")
-plt.ylabel("Salariu")
-plt.show()
 
-# TODO: Adaugă hue="sex" și split=True pentru a compara bărbați vs femei
+# Adaugă hue="sex" și split=True pentru a compara bărbați vs femei
 ```
 
 ---
