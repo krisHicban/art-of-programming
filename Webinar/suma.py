@@ -333,6 +333,7 @@ class Calculator(QWidget):
 
             # Toata logica se intampla aici, restul este UI/UX
             # Convert display symbols to calculation symbols
+            # Manual inference
             if op == '+':
                 result = num1 + num2
                 operation_text = "adunarea"
