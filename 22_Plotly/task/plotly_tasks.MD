@@ -544,5 +544,3 @@ task_plotly_[NumeTau]/
 **🎉 Mult succes cu task-ul! 🎉**
 
 > **Reminder:** Plotly e despre **interactivitate**! Asigură-te că folosești hover, zoom, și click pe legendă pentru a explora datele. Nu ezita să experimentezi cu parametri diferiți - asta e frumusețea visualizării interactive!
-
-> **💡 Pro Tip:** După ce termini, deschide fișierele HTML în browser și arată-le prietenilor/familiei - o să fie impresionați de graficele tale interactive! 🚀
