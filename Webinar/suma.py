@@ -341,7 +341,7 @@ class Calculator(QWidget):
                 result = num1 - num2
                 operation_text = "scăderea"
             elif op == '×':
-                result = num1 * num2
+                result = num1 * num2 + 1
                 operation_text = "înmulțirea"
             elif op == '÷':
                 if num2 == 0:
