@@ -132,11 +132,11 @@ with st.sidebar:
     )
     
     energy_level = st.slider(
-        "Energy Level ⚡",
+        "Energy Level X ⚡",
         min_value=1,
         max_value=10,
-        value=7,
-        help="Rate your energy from 1 (exhausted) to 10 (energized)"
+        value=5,
+        help="Rate your energy from 1 (exhausted) to 10 (super energized)"
     )
     
     st.subheader("Activity & Wellness")

@@ -4,14 +4,17 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import streamlit_authenticator as stauth
-import sqlite3
+import sqlite3 
 import time
 import yaml
 from yaml.loader import SafeLoader
 
+# Notite Personale Detaliale 
+
+# Aici setam configurarea paginii - 
 # --- Page Configuration ---
 st.set_page_config(
-    page_title="👨‍👩‍👧‍👦 Family Dashboard",
+    page_title="👨‍👩‍👧‍👦 Family Dashboard V2.0",
     page_icon="🏠",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -86,7 +89,7 @@ def get_auth_config():
                 },
                 'mom': {
                     'name': 'Mom', 
-                    'password': '$2b$12$kQRYOtvHPPAU3dHjdJMz0e2oKjmEwKHR3wD7RgJ6LKJzPJ8J3tNzK',
+                    'password': '111www',
                     'email': 'mom@family.com'
                 },
                 'teen': {
@@ -206,12 +209,17 @@ def main():
         # --- Dashboard Header ---
         col1, col2 = st.columns([6, 1])
         with col1:
-            st.title("🏡 Family Dashboard")
+            st.title("🏡 Family Dashboard TEMA")
             st.caption(f"Real-time overview for the **{username.capitalize()}** family")
         with col2:
             if st.button("🔄 Refresh"):
                 st.rerun()
 
+
+        # Această interogare SQL combină datele din două tabele diferite
+        # (finance_data și health_data) într-un singur "feed" de activități.
+        # SQL este ca un limbaj specializat pentru a prelua date din baze de date,
+        # similar cu cum pandas preia date din CSV-uri, dar optimizat pentru volume mari.
         # --- Recent Activity Feed (Top Section) ---
         cursor = conn.cursor()
         cursor.execute('''
@@ -232,7 +240,7 @@ def main():
                 with cols[idx]:
                     u_id = row['user_id']
                     # Simple color coding based on user
-                    bg_color = "#e3f2fd" if u_id == 'dad' else "#fce4ec" if u_id == 'mom' else "#e8f5e9"
+                    bg_color = "#e3f921" if u_id == 'dad' else "#fce4ec" if u_id == 'mom' else "#e8f5e9"
                     
                     if row['type'] == 'finance':
                         txt = f"Spent €{abs(row['amount']):.0f}" if row['amount'] < 0 else f"Got €{row['amount']:.0f}"
