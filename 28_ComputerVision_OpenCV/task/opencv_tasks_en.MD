@@ -104,18 +104,15 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 
-# Load image (replace with your own!)
-image = cv2.imread('your_image.jpg')
-image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+# Load image - Practice loading an image in python cv2.
 
-print(f"📸 Image loaded: {image_rgb.shape}")
 
 # TODO 1: Convert to HSV
 hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 
 # TODO 2: Define blue color range in HSV
 # Blue in HSV: Hue ~100-130, high saturation, decent value
-lower_blue = np.array([100, 50, 50])    # Adjust these!
+lower_blue = np.array([100, 50, 50])    # Research and Adjust these!
 upper_blue = np.array([130, 255, 255])  # Adjust these!
 
 # TODO 3: Create mask
@@ -174,15 +171,11 @@ plt.show()
 
 ### ❓ Reflection Questions:
 
-**1. Why do we use HSV instead of RGB for color detection?**
+**1. What happens if you set `area > 100` instead of `area > 500`?**
 
 _Your answer:_ _______________________________________________
 
-**2. What happens if you set `area > 100` instead of `area > 500`?**
-
-_Your answer:_ _______________________________________________
-
-**3. Challenge: Modify the code to detect RED objects. What changes?**
+**2. Challenge: Modify the code to detect RED objects. What changes?**
 
 _Your answer:_ _______________________________________________
 
@@ -303,7 +296,7 @@ cleaned = cv2.morphologyEx(cleaned, cv2.MORPH_OPEN, kernel)
 
 ### ❓ Reflection Questions:
 
-**1. Why does global threshold fail on images with uneven lighting?**
+**1. What else do you think we can accomplish/clean beyond old writings?**
 
 _Your answer:_ _______________________________________________
 
@@ -352,7 +345,7 @@ print(f"📸 Image loaded: {image_rgb.shape}")
 # TODO 1: Convert to binary
 _, binary = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY_INV)
 
-# TODO 2: Clean up with morphological operations
+# TODO 2: Optional for better accuray - Clean up with morphological operations
 kernel = np.ones((5, 5), np.uint8)
 binary_clean = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
 binary_clean = cv2.morphologyEx(binary_clean, cv2.MORPH_OPEN, kernel)
@@ -362,52 +355,10 @@ contours, _ = cv2.findContours(binary_clean, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX
 
 print(f"🔍 Found {len(contours)} total contours")
 
-# TODO 4: Filter and analyze
+# TODO 4: Filter and analyze - your Work
 result = image_rgb.copy()
 large_objects = []
 
-# Generate random colors for each object
-colors = [tuple(np.random.randint(0, 255, 3).tolist()) for _ in range(len(contours))]
-
-for i, contour in enumerate(contours):
-    area = cv2.contourArea(contour)
-
-    if area > 500:  # Minimum area threshold
-        # Calculate properties
-        perimeter = cv2.arcLength(contour, True)
-
-        # Calculate centroid (center of mass)
-        M = cv2.moments(contour)
-        if M["m00"] != 0:
-            cx = int(M["m10"] / M["m00"])
-            cy = int(M["m01"] / M["m00"])
-        else:
-            cx, cy = 0, 0
-
-        # Get bounding rectangle
-        x, y, w, h = cv2.boundingRect(contour)
-
-        # Store info
-        large_objects.append({
-            'id': len(large_objects) + 1,
-            'area': area,
-            'perimeter': perimeter,
-            'centroid': (cx, cy),
-            'bbox': (x, y, w, h)
-        })
-
-        # Draw contour
-        cv2.drawContours(result, [contour], -1, colors[i], 3)
-
-        # Draw centroid
-        cv2.circle(result, (cx, cy), 7, (255, 0, 0), -1)
-
-        # Draw bounding box
-        cv2.rectangle(result, (x, y), (x+w, y+h), (0, 255, 0), 2)
-
-        # Add label
-        cv2.putText(result, f"#{len(large_objects)}", (x, y-10),
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 0), 2)
 
 # Print analysis
 print(f"\n✅ Found {len(large_objects)} large objects (> 500 pixels)\n")
@@ -440,15 +391,10 @@ plt.tight_layout()
 plt.show()
 ```
 
-### 💡 Hints:
-
-- **Experiment with threshold**: Try adaptive instead of global
-- **Kernel size matters**: Larger kernel = more aggressive smoothing
-- **RETR_EXTERNAL**: Only outermost contours (use RETR_TREE for nested)
 
 ### ❓ Reflection Questions:
 
-**1. What's the difference between area and perimeter? When is each useful?**
+**1. Would your algorithm hold and work if there were 1000 images coming in per second?**
 
 _Your answer:_ _______________________________________________
 
@@ -755,31 +701,25 @@ opencv_surveillance_project/
 
 ## ❓ Final Reflection Questions
 
-### 1. Explain how frame differencing detects motion. Why do we use absolute difference?
+### 1. What makes smoke detection harder than motion detection?
 
 _Your answer:_
 _______________________________________________________________
 _______________________________________________________________
 
-### 2. What makes smoke detection harder than motion detection?
+### 2. How would you reduce false alarms (e.g., ignore shadows, lighting changes)?
 
 _Your answer:_
 _______________________________________________________________
 _______________________________________________________________
 
-### 3. How would you reduce false alarms (e.g., ignore shadows, lighting changes)?
+### 3. Your system catches an intruder at 3 AM. What additional features would make it more useful?
 
 _Your answer:_
 _______________________________________________________________
 _______________________________________________________________
 
-### 4. Your system catches an intruder at 3 AM. What additional features would make it more useful?
-
-_Your answer:_
-_______________________________________________________________
-_______________________________________________________________
-
-### 5. Real-world deployment: What are the ethical considerations of surveillance systems?
+### 4. Real-world deployment: What are the ethical considerations of surveillance systems?
 
 _Your answer:_
 _______________________________________________________________
@@ -812,32 +752,6 @@ _______________________________________________________________
 - **Morphological operations**: https://docs.opencv.org/4.x/d9/d61/tutorial_py_morphological_ops.html
 
 ---
-
-## 🔥 Extra Challenges (For the Brave!)
-
-### Challenge 1: Face Detection Integration
-Add face recognition to identify authorized vs unauthorized people:
-```python
-face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-faces = face_cascade.detectMultiScale(gray, 1.1, 4)
-# If face detected but not in authorized list → INTRUDER ALERT
-```
-
-### Challenge 2: Zone-Based Monitoring
-Define specific regions (e.g., door, window) with different sensitivities:
-```python
-zones = {
-    'door': {'bbox': (0, 0, 200, 480), 'threshold': 1000},
-    'window': {'bbox': (400, 0, 640, 300), 'threshold': 2000}
-}
-```
-
-### Challenge 3: ML-Based Smoke Detection
-Train a small neural network to classify smoke vs non-smoke:
-```python
-# Use keras/tensorflow with smoke/no-smoke dataset
-# Much more accurate than color-based detection!
-```
 
 ---
 
