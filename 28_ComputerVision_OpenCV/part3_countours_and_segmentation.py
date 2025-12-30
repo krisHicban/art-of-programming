@@ -247,5 +247,5 @@ if __name__ == "__main__":
     print("\n" + "="*60)
     
     # Example usage (uncomment and replace with your image):
-    show_processing_pipeline('dubai-chocolate.jpg')
+    show_processing_pipeline('photo.jpg')
     # color_object_detector('example.jpg', 'blue')
