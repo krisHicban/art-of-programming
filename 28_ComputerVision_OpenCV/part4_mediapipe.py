@@ -2,6 +2,10 @@ import cv2
 import mediapipe as mp
 import numpy as np
 
+
+
+
+
 # ====== HEALTH APP: Workout Form Analyzer ======
 class WorkoutFormAnalyzer:
     """Real-time workout form analysis using MediaPipe"""
@@ -99,6 +103,12 @@ class WorkoutFormAnalyzer:
             'state': state,
             'feedback': feedback
         }
+    
+
+
+
+
+    
 
 # ====== HAND TRACKING: Finance Receipt Scanner ======
 class ReceiptScanner:
