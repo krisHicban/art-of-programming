@@ -171,6 +171,21 @@ class HeadPoseEstimator:
 
         return frame, {'pitch': pitch, 'yaw': yaw, 'roll': roll, 'direction': direction}
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # ====== Gesture-Based Control ======
 class GestureController:
     """
