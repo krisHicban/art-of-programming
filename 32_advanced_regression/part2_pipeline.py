@@ -28,7 +28,9 @@ print(f"\nColoane în X:\n{X.columns.tolist()}")
 
 # Identifică automat coloanele numerice și categorice
 numerical_features = X.select_dtypes(include=['int64', 'float64']).columns.tolist()
-categorical_features = X.select_dtypes(include=['object']).columns.tolist()
+
+# Future-proof: include both 'object' and 'string' dtypes
+categorical_features = X.select_dtypes(include=['object', 'string']).columns.tolist()
 
 print(f"\n🔢 NUMERICAL FEATURES ({len(numerical_features)}):")
 print(numerical_features)
