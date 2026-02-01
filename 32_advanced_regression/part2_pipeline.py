@@ -75,6 +75,17 @@ print("\n🔧 COLUMN TRANSFORMER CREAT!")
 print(f"  - Va procesa {len(numerical_features)} numerical features")
 print(f"  - Va procesa {len(categorical_features)} categorical features")
 
+
+
+
+
+
+
+
+
+
+
+
 # ========================================
 # PARTEA 5: TRAIN-TEST SPLIT
 # ========================================
