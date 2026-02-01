@@ -1,11 +1,11 @@
+
 import cv2
 import numpy as np
 from ultralytics import YOLO
-import time
 from collections import defaultdict, deque
-import matplotlib.pyplot as plt
-from datetime import datetime
-import pandas as pd
+from dataclasses import dataclass, field
+from typing import Dict, List, Tuple, Optional
+import time
 
 # ==========================================
 # SETUP: Installing and Loading YOLOv8
@@ -26,401 +26,636 @@ For real-time applications: Use nano or small
 For accuracy-critical applications: Use medium or large
 """
 
-print("=" * 80)
-print("YOLO v8: REAL-TIME OBJECT DETECTION")
-print("=" * 80)
-print()
+# Manually Load pre-trained YOLOv8 model (COCO dataset - 80 classes)
+# model = YOLO('yolov8n.pt')  # Nano model for speed
 
-# Load pre-trained YOLOv8 model (COCO dataset - 80 classes)
-model = YOLO('yolov8n.pt')  # Nano model for speed
+"""
+================================================================================
+YOLOv8: REAL-TIME OBJECT DETECTION & TRACKING
+================================================================================
 
-print(" YOLOv8n model loaded")
-print(f" Model: YOLOv8 Nano")
-print(f" Training: COCO dataset (80 object classes)")
-print(f" Speed: ~80 FPS on GPU, ~30 FPS on CPU")
-print()
+Course: The Art of Programming - Computer Vision Module
+Lesson: Understanding What YOLO Actually Does (And What It Doesn't)
+
+WHAT YOLO DOES:
+    ✓ Detects WHAT objects are in a frame (from 80 COCO classes)
+    ✓ Locates WHERE objects are (bounding boxes)
+    ✓ Tracks objects across frames (assigns persistent IDs)
+    ✓ Runs in real-time (~30-80 FPS depending on model size)
+
+WHAT YOLO DOES NOT DO:
+    ✗ Pose estimation (use MediaPipe/OpenPose for that)
+    ✗ Document/receipt scanning (use edge detection + OCR)
+    ✗ Form analysis (that requires skeleton tracking)
+    ✗ Detect objects it wasn't trained on (needs custom training)
+
+COCO DATASET CLASSES (80 total):
+    People:     person
+    Vehicles:   bicycle, car, motorcycle, airplane, bus, train, truck, boat
+    Animals:    bird, cat, dog, horse, sheep, cow, elephant, bear, zebra, giraffe
+    Sports:     frisbee, skis, snowboard, sports ball, kite, baseball bat/glove,
+                skateboard, surfboard, tennis racket
+    Kitchen:    bottle, wine glass, cup, fork, knife, spoon, bowl
+    Food:       banana, apple, sandwich, orange, broccoli, carrot, hot dog, pizza,
+                donut, cake
+    Furniture:  chair, couch, potted plant, bed, dining table, toilet
+    Electronics: tv, laptop, mouse, remote, keyboard, cell phone
+    Other:      book, clock, scissors, teddy bear, hair drier, toothbrush, etc.
+
+Installation:
+    pip install ultralytics opencv-python numpy
+
+================================================================================
+"""
 
 
-# ==========================================
-# HEALTH APPLICATION: Workout Form Analysis
-# ==========================================
 
-class WorkoutFormMonitor:
+
+
+# =============================================================================
+# CONFIGURATION
+# =============================================================================
+
+@dataclass
+class Config:
+    """Central configuration for easy experimentation."""
+
+    # Model settings
+    model_size: str = "m"  # n=nano, s=small, m=medium, l=large, x=xlarge
+    confidence_threshold: float = 0.5
+
+    # Tracking settings
+    track_history_length: int = 30  # How many positions to remember per object
+
+    # Zone detection (for counting objects entering/leaving areas)
+    # Format: (x1, y1, x2, y2) as fractions of frame size
+    counting_zone: Tuple[float, float, float, float] = (0.3, 0.3, 0.7, 0.7)
+
+    # Display settings
+    show_trajectories: bool = True
+    show_labels: bool = True
+    show_confidence: bool = True
+    show_fps: bool = True
+    show_zone: bool = True
+
+    # Colors (BGR format)
+    trajectory_color: Tuple[int, int, int] = (0, 255, 255)  # Yellow
+    zone_color: Tuple[int, int, int] = (255, 0, 255)  # Magenta
+    text_color: Tuple[int, int, int] = (255, 255, 255)  # White
+
+    @property
+    def model_path(self) -> str:
+        return f"yolov8{self.model_size}.pt"
+
+
+# =============================================================================
+# DETECTION TRACKER
+# =============================================================================
+
+@dataclass
+class TrackedObject:
+    """Represents a single tracked object across frames."""
+
+    track_id: int
+    class_id: int
+    class_name: str
+    positions: deque = field(default_factory=lambda: deque(maxlen=30))
+    first_seen: float = field(default_factory=time.time)
+    last_seen: float = field(default_factory=time.time)
+    in_zone: bool = False
+    zone_entries: int = 0
+
+    def update(self, center: Tuple[int, int], timestamp: float):
+        """Update object position and timing."""
+        self.positions.append(center)
+        self.last_seen = timestamp
+
+    @property
+    def duration_visible(self) -> float:
+        """How long this object has been tracked."""
+        return self.last_seen - self.first_seen
+
+    @property
+    def trajectory(self) -> List[Tuple[int, int]]:
+        """Get position history as a list."""
+        return list(self.positions)
+
+
+class ObjectTracker:
     """
-    Real-time workout monitoring using YOLO
+    Manages tracking of multiple objects across frames.
 
-    Use Case: Personal trainer AI
-    - Detect person in frame
-    - Track workout equipment (dumbbells, yoga mat, etc.)
-    - Count reps based on object movement
-    - Monitor form consistency
-    - Generate workout summaries
-
-    Real-world: Used by fitness apps like Peloton, Mirror, Tempo
+    This demonstrates a key YOLO capability: persistent object tracking.
+    Each detected object gets a unique ID that persists across frames,
+    allowing you to track movement, count entries/exits, measure dwell time, etc.
     """
 
-    def __init__(self, model):
-        self.model = model
-        self.workout_log = []
-        self.rep_count = 0
-        self.equipment_detected = set()
-        self.session_start = time.time()
+    def __init__(self, config: Config):
+        self.config = config
+        self.tracked_objects: Dict[int, TrackedObject] = {}
+        self.class_names = None  # Will be set from model
 
-        # COCO classes relevant to workouts
-        self.workout_classes = {
-            0: 'person',
-            32: 'sports ball',
-            33: 'baseball bat',
-            34: 'baseball glove',
-            35: 'skateboard',
-            36: 'surfboard',
-            37: 'tennis racket',
-            # Note: COCO doesn't have dumbbells/kettlebells
-            # For those, you'd train a custom model (Part 3)
+        # Statistics
+        self.total_unique_objects = 0
+        self.zone_entry_count = 0
+        self.class_counts: Dict[str, int] = defaultdict(int)
+
+    def update(self, results, frame_shape: Tuple[int, int], timestamp: float):
+        """
+        Update tracker with new detection results.
+
+        Args:
+            results: YOLO detection results with tracking
+            frame_shape: (height, width) of the frame
+            timestamp: Current time for duration tracking
+        """
+        if self.class_names is None:
+            self.class_names = results.names
+
+        frame_h, frame_w = frame_shape
+
+        # Get zone boundaries in pixels
+        z = self.config.counting_zone
+        zone_x1 = int(z[0] * frame_w)
+        zone_y1 = int(z[1] * frame_h)
+        zone_x2 = int(z[2] * frame_w)
+        zone_y2 = int(z[3] * frame_h)
+
+        # Track which IDs we see this frame
+        current_ids = set()
+
+        # Process each detection
+        if results.boxes is not None and results.boxes.id is not None:
+            boxes = results.boxes.xyxy.cpu().numpy()
+            track_ids = results.boxes.id.cpu().numpy().astype(int)
+            class_ids = results.boxes.cls.cpu().numpy().astype(int)
+            confidences = results.boxes.conf.cpu().numpy()
+
+            for box, track_id, class_id, conf in zip(boxes, track_ids, class_ids, confidences):
+                current_ids.add(track_id)
+
+                # Calculate center point
+                x1, y1, x2, y2 = box
+                center_x = int((x1 + x2) / 2)
+                center_y = int((y1 + y2) / 2)
+                center = (center_x, center_y)
+
+                # Check if in zone
+                in_zone = (zone_x1 <= center_x <= zone_x2 and
+                           zone_y1 <= center_y <= zone_y2)
+
+                # Update or create tracked object
+                if track_id in self.tracked_objects:
+                    obj = self.tracked_objects[track_id]
+
+                    # Check for zone entry (wasn't in zone, now is)
+                    if not obj.in_zone and in_zone:
+                        obj.zone_entries += 1
+                        self.zone_entry_count += 1
+
+                    obj.in_zone = in_zone
+                    obj.update(center, timestamp)
+                else:
+                    # New object
+                    class_name = self.class_names[class_id]
+                    obj = TrackedObject(
+                        track_id=track_id,
+                        class_id=class_id,
+                        class_name=class_name,
+                        in_zone=in_zone
+                    )
+                    obj.positions.append(center)
+
+                    if in_zone:
+                        obj.zone_entries = 1
+                        self.zone_entry_count += 1
+
+                    self.tracked_objects[track_id] = obj
+                    self.total_unique_objects += 1
+                    self.class_counts[class_name] += 1
+
+        return current_ids
+
+    def get_statistics(self) -> Dict:
+        """Get current tracking statistics."""
+        active_objects = [obj for obj in self.tracked_objects.values()
+                          if time.time() - obj.last_seen < 1.0]
+
+        return {
+            "total_unique": self.total_unique_objects,
+            "currently_tracking": len(active_objects),
+            "zone_entries": self.zone_entry_count,
+            "class_breakdown": dict(self.class_counts),
+            "objects_in_zone": sum(1 for obj in active_objects if obj.in_zone)
         }
 
-    def analyze_frame(self, frame):
-        """
-        Analyze single frame for workout monitoring
 
-        Returns:
-            - Annotated frame
-            - Detection summary
-            - Workout metrics
-        """
-        results = self.model(frame, conf=0.5, verbose=False)[0]
+# =============================================================================
+# VISUALIZATION
+# =============================================================================
 
-        detections = {
-            'person_detected': False,
-            'equipment': [],
-            'bounding_boxes': [],
-            'confidence_scores': []
-        }
+class Visualizer:
+    """
+    Handles all drawing and visualization.
 
-        # Parse detections
-        for box in results.boxes:
-            class_id = int(box.cls[0])
-            confidence = float(box.conf[0])
-            bbox = box.xyxy[0].cpu().numpy()  # [x1, y1, x2, y2]
+    Separating visualization from detection logic is good practice:
+    - Easier to customize appearance
+    - Can swap different visualizers
+    - Detection code stays clean
+    """
 
-            if class_id == 0:  # Person detected
-                detections['person_detected'] = True
+    def __init__(self, config: Config):
+        self.config = config
+        self.fps_history = deque(maxlen=30)
 
-            if class_id in self.workout_classes:
-                class_name = self.workout_classes[class_id]
-                detections['equipment'].append(class_name)
-                self.equipment_detected.add(class_name)
+    def draw_trajectories(self, frame: np.ndarray, tracker: ObjectTracker,
+                          current_ids: set) -> np.ndarray:
+        """Draw movement trails for tracked objects."""
+        if not self.config.show_trajectories:
+            return frame
 
-            detections['bounding_boxes'].append(bbox)
-            detections['confidence_scores'].append(confidence)
+        for track_id in current_ids:
+            if track_id in tracker.tracked_objects:
+                obj = tracker.tracked_objects[track_id]
+                trajectory = obj.trajectory
 
-        # Annotate frame
-        annotated_frame = results.plot()
+                if len(trajectory) > 1:
+                    # Draw trail with fading effect
+                    for i in range(1, len(trajectory)):
+                        alpha = i / len(trajectory)  # Fade from old to new
+                        thickness = int(1 + alpha * 2)
 
-        # Add workout stats overlay
-        session_duration = time.time() - self.session_start
-        stats_text = [
-            f"Session: {session_duration:.0f}s",
-            f"Person: {'' if detections['person_detected'] else 'L'}",
-            f"Equipment: {', '.join(set(detections['equipment'])) if detections['equipment'] else 'None'}"
+                        pt1 = trajectory[i - 1]
+                        pt2 = trajectory[i]
+
+                        # Color based on whether object is in zone
+                        if obj.in_zone:
+                            color = self.config.zone_color
+                        else:
+                            color = self.config.trajectory_color
+
+                        cv2.line(frame, pt1, pt2, color, thickness)
+
+        return frame
+
+    def draw_zone(self, frame: np.ndarray) -> np.ndarray:
+        """Draw the counting/detection zone."""
+        if not self.config.show_zone:
+            return frame
+
+        h, w = frame.shape[:2]
+        z = self.config.counting_zone
+
+        x1, y1 = int(z[0] * w), int(z[1] * h)
+        x2, y2 = int(z[2] * w), int(z[3] * h)
+
+        # Semi-transparent overlay
+        overlay = frame.copy()
+        cv2.rectangle(overlay, (x1, y1), (x2, y2), self.config.zone_color, 2)
+        cv2.rectangle(overlay, (x1, y1), (x2, y2), self.config.zone_color, -1)
+
+        # Blend with original (15% opacity for fill)
+        cv2.addWeighted(overlay, 0.15, frame, 0.85, 0, frame)
+
+        # Draw border
+        cv2.rectangle(frame, (x1, y1), (x2, y2), self.config.zone_color, 2)
+
+        # Label
+        cv2.putText(frame, "DETECTION ZONE", (x1 + 5, y1 + 20),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, self.config.zone_color, 1)
+
+        return frame
+
+    def draw_statistics(self, frame: np.ndarray, stats: Dict, fps: float) -> np.ndarray:
+        """Draw statistics overlay."""
+        h, w = frame.shape[:2]
+
+        # Background panel
+        panel_h = 140
+        overlay = frame.copy()
+        cv2.rectangle(overlay, (10, 10), (280, panel_h), (0, 0, 0), -1)
+        cv2.addWeighted(overlay, 0.7, frame, 0.3, 0, frame)
+
+        # Statistics text
+        lines = [
+            f"FPS: {fps:.1f}",
+            f"Unique Objects: {stats['total_unique']}",
+            f"Currently Tracking: {stats['currently_tracking']}",
+            f"In Zone: {stats['objects_in_zone']}",
+            f"Zone Entries: {stats['zone_entries']}",
         ]
 
-        y_offset = 30
-        for text in stats_text:
-            cv2.putText(annotated_frame, text, (10, y_offset),
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-            y_offset += 30
+        y = 30
+        for line in lines:
+            cv2.putText(frame, line, (20, y), cv2.FONT_HERSHEY_SIMPLEX,
+                        0.5, self.config.text_color, 1)
+            y += 22
 
-        return annotated_frame, detections
+        return frame
 
-    def generate_workout_summary(self):
-        """Generate post-workout analysis"""
-        duration = time.time() - self.session_start
+    def draw_class_breakdown(self, frame: np.ndarray, stats: Dict) -> np.ndarray:
+        """Draw detected class breakdown on the right side."""
+        h, w = frame.shape[:2]
 
-        summary = {
-            'duration_minutes': duration / 60,
-            'equipment_used': list(self.equipment_detected),
-            'frames_analyzed': len(self.workout_log),
-            'avg_fps': len(self.workout_log) / duration if duration > 0 else 0
-        }
+        if not stats['class_breakdown']:
+            return frame
 
-        return summary
+        # Sort by count
+        sorted_classes = sorted(stats['class_breakdown'].items(),
+                                key=lambda x: x[1], reverse=True)[:8]
+
+        # Background panel
+        panel_w = 180
+        panel_h = 30 + len(sorted_classes) * 22
+
+        overlay = frame.copy()
+        cv2.rectangle(overlay, (w - panel_w - 10, 10), (w - 10, panel_h), (0, 0, 0), -1)
+        cv2.addWeighted(overlay, 0.7, frame, 0.3, 0, frame)
+
+        # Title
+        cv2.putText(frame, "DETECTED CLASSES", (w - panel_w, 30),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
+
+        # Class counts
+        y = 52
+        for class_name, count in sorted_classes:
+            text = f"{class_name}: {count}"
+            cv2.putText(frame, text, (w - panel_w, y),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.45, self.config.text_color, 1)
+            y += 22
+
+        return frame
+
+    def draw_controls_help(self, frame: np.ndarray) -> np.ndarray:
+        """Draw keyboard controls help at the bottom."""
+        h, w = frame.shape[:2]
+
+        help_text = "[Q] Quit  [T] Toggle Trails  [Z] Toggle Zone  [S] Screenshot  [R] Reset Stats"
+
+        # Background
+        overlay = frame.copy()
+        cv2.rectangle(overlay, (0, h - 30), (w, h), (0, 0, 0), -1)
+        cv2.addWeighted(overlay, 0.7, frame, 0.3, 0, frame)
+
+        cv2.putText(frame, help_text, (10, h - 10),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.45, (200, 200, 200), 1)
+
+        return frame
 
 
-# ==========================================
-# FINANCE APPLICATION: Receipt & Document Scanner
-# ==========================================
+# =============================================================================
+# MAIN APPLICATION
+# =============================================================================
 
-class ReceiptScanner:
+class YOLOv8Demo:
     """
-    Intelligent receipt and document scanning using YOLO
+    Main application demonstrating YOLOv8 capabilities.
 
-    Use Case: Personal finance tracking
-    - Detect documents/receipts in frame
-    - Guide user to optimal capture position
-    - Auto-capture when document is clear
-    - Extract text regions for OCR
-    - Categorize document type
+    This class ties together:
+    - YOLO model for detection
+    - Object tracker for persistence
+    - Visualizer for display
 
-    Real-world: Used by Expensify, Mint, banking apps
+    Educational Goals:
+    1. Understand what YOLO actually detects
+    2. See real-time tracking in action
+    3. Learn about zone-based analytics
+    4. Observe confidence scores and their meaning
     """
 
-    def __init__(self, model):
-        self.model = model
-        self.scanned_docs = []
-        self.capture_queue = deque(maxlen=5)  # Stability checking
+    def __init__(self, config: Optional[Config] = None):
+        self.config = config or Config()
 
-        # COCO classes for documents/items
-        self.finance_classes = {
-            0: 'person',
-            73: 'book',
-            84: 'book',
-            # Note: For receipts specifically, custom training needed
-            # COCO provides general document detection
-        }
+        print("=" * 70)
+        print("YOLOv8 REAL-TIME OBJECT DETECTION & TRACKING")
+        print("=" * 70)
+        print()
 
-    def analyze_document(self, frame):
+        # Load model
+        print(f"Loading YOLOv8{self.config.model_size} model...")
+        self.model = YOLO(self.config.model_path)
+        print(f"✓ Model loaded: {self.config.model_path}")
+        print(f"✓ Classes: 80 (COCO dataset)")
+        print(f"✓ Confidence threshold: {self.config.confidence_threshold}")
+        print()
+
+        # Initialize components
+        self.tracker = ObjectTracker(self.config)
+        self.visualizer = Visualizer(self.config)
+
+        # State
+        self.running = False
+        self.fps_times = deque(maxlen=30)
+
+    def process_frame(self, frame: np.ndarray) -> np.ndarray:
         """
-        Analyze frame for document detection
+        Process a single frame through the detection pipeline.
 
-        Returns guidance for optimal capture
+        Pipeline:
+        1. Run YOLO detection with tracking
+        2. Update our tracker with results
+        3. Draw visualizations
+        4. Return annotated frame
         """
-        results = self.model(frame, conf=0.6, verbose=False)[0]
+        timestamp = time.time()
 
-        analysis = {
-            'document_detected': False,
-            'capture_ready': False,
-            'guidance': [],
-            'bounding_box': None
-        }
+        # Run YOLO with built-in tracking (ByteTrack algorithm)
+        results = self.model.track(
+            frame,
+            persist=True,  # Keep track IDs across frames
+            conf=self.config.confidence_threshold,
+            verbose=False
+        )[0]
 
-        # Find largest document in frame
-        max_area = 0
-        best_box = None
+        # Update our tracker
+        current_ids = self.tracker.update(results, frame.shape[:2], timestamp)
 
-        for box in results.boxes:
-            bbox = box.xyxy[0].cpu().numpy()
-            x1, y1, x2, y2 = bbox
-            area = (x2 - x1) * (y2 - y1)
+        # Get annotated frame from YOLO (draws boxes and labels)
+        annotated = results.plot()
 
-            if area > max_area:
-                max_area = area
-                best_box = bbox
-                analysis['document_detected'] = True
-
-        if analysis['document_detected']:
-            analysis['bounding_box'] = best_box
-
-            # Check capture conditions
-            frame_h, frame_w = frame.shape[:2]
-            x1, y1, x2, y2 = best_box
-
-            # Document should fill 40-80% of frame
-            doc_area_ratio = max_area / (frame_h * frame_w)
-
-            if doc_area_ratio < 0.4:
-                analysis['guidance'].append("Move closer")
-            elif doc_area_ratio > 0.8:
-                analysis['guidance'].append("Move farther")
-            else:
-                # Check if document is centered
-                center_x = (x1 + x2) / 2
-                center_y = (y1 + y2) / 2
-
-                if abs(center_x - frame_w/2) > frame_w * 0.1:
-                    analysis['guidance'].append("Center horizontally")
-                elif abs(center_y - frame_h/2) > frame_h * 0.1:
-                    analysis['guidance'].append("Center vertically")
-                else:
-                    # Perfect position - check stability
-                    self.capture_queue.append(True)
-                    if len(self.capture_queue) == 5 and all(self.capture_queue):
-                        analysis['capture_ready'] = True
-                        analysis['guidance'].append(" READY TO CAPTURE")
-
-        else:
-            analysis['guidance'].append("No document detected")
-
-        return analysis
-
-    def capture_document(self, frame, bbox):
-        """Crop and save document region"""
-        x1, y1, x2, y2 = map(int, bbox)
-        cropped = frame[y1:x2, x1:x2]
-
-        # In production: Send to OCR (Tesseract, Google Vision API)
-        # Extract text, amounts, dates, merchant names
-
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"receipt_{timestamp}.jpg"
-        cv2.imwrite(filename, cropped)
-
-        self.scanned_docs.append({
-            'timestamp': timestamp,
-            'filename': filename,
-            'bbox': bbox
-        })
-
-        return filename
-
-
-# ==========================================
-# REAL-TIME WEBCAM DEMO
-# ==========================================
-
-def run_health_monitor_demo(duration_seconds=30):
-    """
-    Live workout monitoring demo
-
-    Press 'q' to quit
-    Press 's' to save screenshot
-    """
-    print()
-    print("=" * 80)
-    print("HEALTH MONITORING DEMO: Workout Form Analysis")
-    print("=" * 80)
-    print()
-    print("Starting webcam...")
-    print("Press 'q' to quit, 's' to save screenshot")
-    print()
-
-    monitor = WorkoutFormMonitor(model)
-    cap = cv2.VideoCapture(0)
-
-    fps_queue = deque(maxlen=30)
-    start_time = time.time()
-
-    while True:
-        frame_start = time.time()
-
-        ret, frame = cap.read()
-        if not ret:
-            break
-
-        # Analyze frame
-        annotated_frame, detections = monitor.analyze_frame(frame)
+        # Add our custom visualizations
+        annotated = self.visualizer.draw_zone(annotated)
+        annotated = self.visualizer.draw_trajectories(annotated, self.tracker, current_ids)
 
         # Calculate FPS
-        fps = 1.0 / (time.time() - frame_start)
-        fps_queue.append(fps)
-        avg_fps = np.mean(fps_queue)
+        self.fps_times.append(timestamp)
+        if len(self.fps_times) > 1:
+            fps = len(self.fps_times) / (self.fps_times[-1] - self.fps_times[0])
+        else:
+            fps = 0
 
-        # Display FPS
-        cv2.putText(annotated_frame, f"FPS: {avg_fps:.1f}", (10, frame.shape[0] - 10),
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+        # Draw statistics
+        stats = self.tracker.get_statistics()
+        annotated = self.visualizer.draw_statistics(annotated, stats, fps)
+        annotated = self.visualizer.draw_class_breakdown(annotated, stats)
+        annotated = self.visualizer.draw_controls_help(annotated)
 
-        cv2.imshow('Workout Monitor - YOLOv8', annotated_frame)
+        return annotated
 
-        # Log detection
-        monitor.workout_log.append({
-            'timestamp': time.time() - start_time,
-            'detections': detections
-        })
+    def run_webcam(self):
+        """
+        Run live detection on webcam feed.
 
-        # Handle keyboard input
-        key = cv2.waitKey(1) & 0xFF
-        if key == ord('q'):
-            break
-        elif key == ord('s'):
-            cv2.imwrite(f'workout_frame_{int(time.time())}.jpg', annotated_frame)
-            print("Screenshot saved!")
+        Controls:
+            Q - Quit
+            T - Toggle trajectory trails
+            Z - Toggle detection zone
+            S - Save screenshot
+            R - Reset statistics
+        """
+        print("Starting webcam...")
+        print()
+        print("Controls:")
+        print("  [Q] Quit application")
+        print("  [T] Toggle trajectory trails")
+        print("  [Z] Toggle detection zone display")
+        print("  [S] Save screenshot")
+        print("  [R] Reset all statistics")
+        print()
 
-    cap.release()
-    cv2.destroyAllWindows()
+        cap = cv2.VideoCapture(0)
 
-    # Generate summary
-    summary = monitor.generate_workout_summary()
-    print()
-    print("=" * 80)
-    print("WORKOUT SESSION SUMMARY")
-    print("=" * 80)
-    print(f"Duration: {summary['duration_minutes']:.1f} minutes")
-    print(f"Equipment detected: {', '.join(summary['equipment_used']) if summary['equipment_used'] else 'None'}")
-    print(f"Average FPS: {summary['avg_fps']:.1f}")
-    print(f"Total frames: {summary['frames_analyzed']}")
-    print()
+        if not cap.isOpened():
+            print("ERROR: Could not open webcam")
+            return
+
+        # Set resolution (optional - adjust for your needs)
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+
+        self.running = True
+
+        while self.running:
+            ret, frame = cap.read()
+            if not ret:
+                print("ERROR: Failed to read frame")
+                break
+
+            # Process frame
+            annotated = self.process_frame(frame)
+
+            # Display
+            cv2.imshow("YOLOv8 Detection & Tracking", annotated)
+
+            # Handle keyboard input
+            key = cv2.waitKey(1) & 0xFF
+
+            if key == ord('q'):
+                self.running = False
+            elif key == ord('t'):
+                self.config.show_trajectories = not self.config.show_trajectories
+                print(f"Trajectories: {'ON' if self.config.show_trajectories else 'OFF'}")
+            elif key == ord('z'):
+                self.config.show_zone = not self.config.show_zone
+                print(f"Zone display: {'ON' if self.config.show_zone else 'OFF'}")
+            elif key == ord('s'):
+                filename = f"yolo_screenshot_{int(time.time())}.jpg"
+                cv2.imwrite(filename, annotated)
+                print(f"✓ Screenshot saved: {filename}")
+            elif key == ord('r'):
+                self.tracker = ObjectTracker(self.config)
+                print("✓ Statistics reset")
+
+        cap.release()
+        cv2.destroyAllWindows()
+
+        # Print final statistics
+        self.print_session_summary()
+
+    def run_on_image(self, image_path: str):
+        """
+        Run detection on a single image.
+
+        Useful for understanding YOLO output without real-time pressure.
+        """
+        print(f"Processing image: {image_path}")
+
+        frame = cv2.imread(image_path)
+        if frame is None:
+            print(f"ERROR: Could not load image: {image_path}")
+            return
+
+        # Run detection (no tracking for single image)
+        results = self.model(
+            frame,
+            conf=self.config.confidence_threshold,
+            verbose=False
+        )[0]
+
+        # Print detections
+        print()
+        print("Detections:")
+        print("-" * 40)
+
+        if results.boxes is not None:
+            for box in results.boxes:
+                class_id = int(box.cls[0])
+                class_name = results.names[class_id]
+                confidence = float(box.conf[0])
+                bbox = box.xyxy[0].cpu().numpy()
+
+                print(f"  {class_name}: {confidence:.1%} confidence")
+                print(f"    Location: ({bbox[0]:.0f}, {bbox[1]:.0f}) to ({bbox[2]:.0f}, {bbox[3]:.0f})")
+        else:
+            print("  No objects detected")
+
+        # Display
+        annotated = results.plot()
+        cv2.imshow("YOLOv8 Detection", annotated)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+
+    def print_session_summary(self):
+        """Print summary statistics after session ends."""
+        stats = self.tracker.get_statistics()
+
+        print()
+        print("=" * 70)
+        print("SESSION SUMMARY")
+        print("=" * 70)
+        print()
+        print(f"Total unique objects detected: {stats['total_unique']}")
+        print(f"Total zone entries: {stats['zone_entries']}")
+        print()
+
+        if stats['class_breakdown']:
+            print("Objects by class:")
+            for class_name, count in sorted(stats['class_breakdown'].items(),
+                                            key=lambda x: x[1], reverse=True):
+                print(f"  {class_name}: {count}")
+
+        print()
+        print("=" * 70)
 
 
-def run_receipt_scanner_demo():
+# =============================================================================
+# ENTRY POINT
+# =============================================================================
+
+def main():
     """
-    Live receipt scanning demo
+    Main entry point - customize configuration here.
 
-    Position receipt in frame following guidance
-    Auto-captures when stable
+    Try experimenting with:
+    - Different model sizes (n, s, m, l, x)
+    - Different confidence thresholds
+    - Different zone positions
+    - Turning features on/off
     """
-    print()
-    print("=" * 80)
-    print("FINANCE APPLICATION: Smart Receipt Scanner")
-    print("=" * 80)
-    print()
-    print("Starting webcam...")
-    print("Position receipt in frame - follow on-screen guidance")
-    print("Press 'q' to quit, 'c' to force capture")
-    print()
 
-    scanner = ReceiptScanner(model)
-    cap = cv2.VideoCapture(0)
+    # Create configuration
+    config = Config(
+        model_size="m",  # Start with nano for speed
+        confidence_threshold=0.5,  # Adjust based on false positive rate
+        show_trajectories=True,  # Show movement trails
+        show_zone=True,  # Show detection zone
+        counting_zone=(0.25, 0.25, 0.75, 0.75),  # Center zone
+    )
 
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            break
-
-        # Analyze frame
-        analysis = scanner.analyze_document(frame)
-
-        # Draw bounding box if document detected
-        if analysis['document_detected']:
-            x1, y1, x2, y2 = map(int, analysis['bounding_box'])
-            color = (0, 255, 0) if analysis['capture_ready'] else (255, 165, 0)
-            cv2.rectangle(frame, (x1, y1), (x2, y2), color, 3)
-
-        # Display guidance
-        y_offset = 30
-        for guidance in analysis['guidance']:
-            color = (0, 255, 0) if '' in guidance else (255, 255, 255)
-            cv2.putText(frame, guidance, (10, y_offset),
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)
-            y_offset += 40
-
-        cv2.imshow('Receipt Scanner - YOLOv8', frame)
-
-        # Auto-capture or manual capture
-        key = cv2.waitKey(1) & 0xFF
-        if key == ord('q'):
-            break
-        elif (key == ord('c') or analysis['capture_ready']) and analysis['document_detected']:
-            filename = scanner.capture_document(frame, analysis['bounding_box'])
-            print(f"=� Captured: {filename}")
-            scanner.capture_queue.clear()  # Reset stability
-
-    cap.release()
-    cv2.destroyAllWindows()
-
-    print()
-    print(f"Total documents scanned: {len(scanner.scanned_docs)}")
-    print()
+    # Create and run demo
+    demo = YOLOv8Demo(config)
+    demo.run_webcam()
 
 
-# ==========================================
-# CHOOSE YOUR DEMO
-# ==========================================
-
-print("=" * 80)
-print("YOLO v8 REAL-TIME DEMOS")
-print("=" * 80)
-print()
-print("Available demos:")
-print("  1. Workout Form Monitor (Health)")
-print("  2. Receipt Scanner (Finance)")
-print()
-print("Uncomment the demo you want to run:")
-print()
-
-# run_health_monitor_demo(duration_seconds=30)
-# run_receipt_scanner_demo()
-
-print("=" * 80)
-print("PART 2 COMPLETE: You've built real-time detection systems.")
-print("Next: Custom training for YOUR specific objects.")
-print("=" * 80)
+if __name__ == "__main__":
+    main()
