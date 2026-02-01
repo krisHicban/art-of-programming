@@ -68,4 +68,4 @@ The Breast Cancer dataset has **30 features**. Your task:
 
 ---
 
-**Bafta!** Submit your scripts in this folder.
+**Bafta!**

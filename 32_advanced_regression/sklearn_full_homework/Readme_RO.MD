@@ -68,4 +68,4 @@ Dataset-ul Breast Cancer are **30 de feature-uri**. Cerința voastră:
 
 ---
 
-**Baftă!** Trimiteți scripturile în acest folder.
+**Baftă!**
